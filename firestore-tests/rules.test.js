@@ -8,6 +8,7 @@ import {
 } from "@firebase/rules-unit-testing";
 import {
   addDoc,
+  Bytes,
   collection,
   deleteDoc,
   doc,
@@ -254,6 +255,27 @@ describe("mesajlar", () => {
     await assertFails(addDoc(collection(db(TECH2), "messages"), {
       requestId: "active", senderId: TECH2, receiverId: CUSTOMER, message: "x",
     }));
+  });
+});
+
+describe("teknisyen fotoğrafları", () => {
+  const photo = (size) => ({ data: Bytes.fromUint8Array(new Uint8Array(size)) });
+
+  test("şirket fotoğraf yükler, herkes okur", async () => {
+    await assertSucceeds(setDoc(doc(db(COMPANY), "technicianPhotos", TECH), photo(20 * 1024)));
+    await assertSucceeds(getDoc(doc(db(CUSTOMER), "technicianPhotos", TECH)));
+  });
+  test("teknisyen ya da müşteri fotoğraf yükleyemez", async () => {
+    await assertFails(setDoc(doc(db(TECH), "technicianPhotos", TECH), photo(1024)));
+    await assertFails(setDoc(doc(db(CUSTOMER), "technicianPhotos", TECH), photo(1024)));
+  });
+  test("200 KB'den büyük fotoğraf reddedilir", async () => {
+    await assertFails(setDoc(doc(db(COMPANY), "technicianPhotos", TECH), photo(300 * 1024)));
+  });
+  test("fotoğraf belgesine başka alan eklenemez", async () => {
+    await assertFails(
+      setDoc(doc(db(COMPANY), "technicianPhotos", TECH), { ...photo(1024), note: "x" }),
+    );
   });
 });
 

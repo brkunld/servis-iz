@@ -5,6 +5,7 @@ import 'package:mobil_proje/utils/background.dart';
 import 'package:mobil_proje/utils/task_service.dart';
 import 'map_screen.dart';
 import 'package:mobil_proje/utils/request_status.dart';
+import 'package:mobil_proje/utils/technician_photo.dart';
 
 enum ViewMode { customers, technicians }
 
@@ -1430,19 +1431,7 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                                     width: 3,
                                   ),
                                 ),
-                                child: CircleAvatar(
-                                  radius: 25,
-                                  backgroundColor: Colors.grey.shade200,
-                                  backgroundImage:
-                                      (data["photoUrl"] != null &&
-                                          data["photoUrl"]
-                                              .toString()
-                                              .isNotEmpty)
-                                      ? NetworkImage(data["photoUrl"])
-                                      : const AssetImage(
-                                          "assets/default_technician.jpg",
-                                        ),
-                                ),
+                                child: TechnicianAvatar(technicianId: uid),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -1705,18 +1694,7 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                           ),
                           shape: BoxShape.circle,
                         ),
-                        child: CircleAvatar(
-                          radius: 25,
-                          backgroundColor: Colors.grey.shade200,
-                          backgroundImage:
-                              (data["photoUrl"] != null &&
-                                  data["photoUrl"].toString().isNotEmpty)
-                              ? NetworkImage(data["photoUrl"].toString())
-                              : const AssetImage(
-                                      "assets/default_technician.jpg",
-                                    )
-                                    as ImageProvider,
-                        ),
+                        child: TechnicianAvatar(technicianId: uid),
                       ),
                       const SizedBox(width: 12),
                       Expanded(

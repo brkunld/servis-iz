@@ -99,6 +99,22 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // =============================
+    // TECHNICIAN PHOTOS
+    // =============================
+    // Avatar boyutunda JPEG (Storage yerine Firestore'da; bkz.
+    // lib/utils/technician_photo.dart). Boyut sınırı uygulamadakiyle aynı.
+    match /technicianPhotos/{uid} {
+      allow read: if signedIn();
+
+      allow create, update: if isCompany() &&
+        request.resource.data.keys().hasOnly(["data", "updatedAt"]) &&
+        request.resource.data.data is bytes &&
+        request.resource.data.data.size() <= 200 * 1024;
+
+      allow delete: if isCompany();
+    }
+
     function validRating(techId, reqId) {
       let before = get(docPath("requests", reqId)).data;
       let after = getAfter(docPath("requests", reqId)).data;
