@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'request_status.dart';
 
 /// Görev alınamadığında kullanıcıya gösterilecek mesajı taşır.
 class TaskException implements Exception {
@@ -26,7 +27,7 @@ Future<void> assignTask({
     final tech = await t.get(techRef);
 
     if (!req.exists ||
-        req.data()?["status"] != "Bekliyor" ||
+        req.data()?["status"] != RequestStatus.pending.value ||
         req.data()?["technicianId"] != null) {
       throw const TaskException("Bu talep artık müsait değil.");
     }
@@ -39,7 +40,7 @@ Future<void> assignTask({
 
     t.update(reqRef, {
       "technicianId": technicianId,
-      "status": "Devam Ediyor",
+      "status": RequestStatus.inProgress.value,
       "updatedAt": FieldValue.serverTimestamp(),
     });
     t.update(techRef, {"isAvailable": false});
@@ -53,7 +54,7 @@ Future<void> completeTask({
 }) {
   final batch = _db.batch();
   batch.update(_db.collection("requests").doc(requestId), {
-    "status": "Tamamlandı",
+    "status": RequestStatus.completed.value,
     "completedAt": FieldValue.serverTimestamp(),
   });
   batch.update(_db.collection("technicians").doc(technicianId), {
@@ -85,11 +86,7 @@ Future<void> rateTask({
     final int totalStars = (data["totalStars"] ?? 0) + stars;
     final int ratingCount = (data["ratingCount"] ?? 0) + 1;
 
-    t.update(reqRef, {
-      "rated": true,
-      "givenStars": stars,
-      "comment": comment,
-    });
+    t.update(reqRef, {"rated": true, "givenStars": stars, "comment": comment});
     t.update(techRef, {
       "totalStars": totalStars,
       "ratingCount": ratingCount,

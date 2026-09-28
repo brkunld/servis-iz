@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:mobil_proje/utils/emulator.dart';
 import 'package:mobil_proje/utils/firebase_options.dart';
 import 'package:mobil_proje/utils/background.dart';
 
@@ -18,7 +19,6 @@ class AddTechnicianScreen extends StatefulWidget {
 }
 
 class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
-
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController nameController = TextEditingController();
@@ -43,6 +43,7 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
         name: secondaryAppName,
         options: DefaultFirebaseOptions.currentPlatform,
       );
+      await connectAuthToEmulator(FirebaseAuth.instanceFor(app: secondaryApp));
     }
 
     return FirebaseAuth.instanceFor(app: secondaryApp);
@@ -69,10 +70,11 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
       }
     }
 
+    if (!mounted) return;
     if (!status.isGranted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Galeri izni verilmedi!")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Galeri izni verilmedi!")));
       return;
     }
 
@@ -91,12 +93,13 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
 
     try {
       final adminAuth = await _getSecondaryAuth();
-      UserCredential cred = await adminAuth.createUserWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
+      final UserCredential cred = await adminAuth
+          .createUserWithEmailAndPassword(
+            email: emailController.text.trim(),
+            password: passwordController.text.trim(),
+          );
 
-      String uid = cred.user!.uid;
+      final String uid = cred.user!.uid;
 
       await cred.user!.sendEmailVerification();
       await adminAuth.signOut();
@@ -124,18 +127,19 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
         "createdAt": FieldValue.serverTimestamp(),
       });
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Teknisyen basariyla eklendi!")),
       );
 
       Navigator.pop(context, true);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Hata: $e")),
-      );
-    } finally {
       if (!mounted) return;
-      setState(() => loading = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Hata: $e")));
+    } finally {
+      if (mounted) setState(() => loading = false);
     }
   }
 
@@ -189,7 +193,10 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
                                 ? FileImage(File(pickedImage!.path))
                                 : null,
                             child: pickedImage == null
-                                ? const Icon(Icons.camera_alt, color: Colors.white)
+                                ? const Icon(
+                                    Icons.camera_alt,
+                                    color: Colors.white,
+                                  )
                                 : null,
                           ),
                         ),
@@ -234,8 +241,9 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          validator: (v) =>
-                              v == null || v.length < 10 ? "Geçerli telefon gir" : null,
+                          validator: (v) => v == null || v.length < 10
+                              ? "Geçerli telefon gir"
+                              : null,
                         ),
                         const SizedBox(height: 16),
 
@@ -252,17 +260,18 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
                                     : Icons.visibility,
                               ),
                               onPressed: () {
-                                setState(() => obscurePassword = !obscurePassword);
+                                setState(
+                                  () => obscurePassword = !obscurePassword,
+                                );
                               },
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          validator: (v) =>
-                              v != null && v.length >= 6
-                                  ? null
-                                  : "Şifre en az 6 karakter olmalı",
+                          validator: (v) => v != null && v.length >= 6
+                              ? null
+                              : "Şifre en az 6 karakter olmalı",
                         ),
 
                         const SizedBox(height: 26),
@@ -279,7 +288,9 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
                               ),
                             ),
                             child: loading
-                                ? const CircularProgressIndicator(color: Colors.white)
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white,
+                                  )
                                 : const Text(
                                     "Kaydet",
                                     style: TextStyle(
@@ -301,6 +312,3 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
     );
   }
 }
-
-
-

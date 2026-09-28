@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobil_proje/screens/edit_technician_screen.dart';
+import 'utils/emulator.dart';
 import 'utils/firebase_options.dart';
 import 'utils/user_role.dart';
 import 'screens/login_screen.dart';
@@ -16,14 +17,13 @@ import 'screens/verify_email_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await connectToEmulators();
   runApp(const ProviderScope(child: TechServiceApp()));
 }
 
 final authStateProvider = StreamProvider<User?>((ref) {
-  return FirebaseAuth.instance.authStateChanges(); 
+  return FirebaseAuth.instance.authStateChanges();
 });
 
 class TechServiceApp extends ConsumerWidget {
@@ -50,7 +50,6 @@ class TechServiceApp extends ConsumerWidget {
           return FutureBuilder<UserRole?>(
             future: findUserRole(user.uid),
             builder: (context, snap) {
-
               if (snap.connectionState == ConnectionState.waiting) {
                 return const Scaffold(
                   body: Center(child: CircularProgressIndicator()),
@@ -63,8 +62,7 @@ class TechServiceApp extends ConsumerWidget {
                 FirebaseAuth.instance.signOut();
 
                 return const LoginScreen(
-                  showMessage:
-                      "Bir hata oluştu. Lütfen tekrar giriş yapın.",
+                  showMessage: "Bir hata oluştu. Lütfen tekrar giriş yapın.",
                 );
               }
 
@@ -99,13 +97,11 @@ class TechServiceApp extends ConsumerWidget {
           );
         },
 
-        loading: () => const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
+        loading: () =>
+            const Scaffold(body: Center(child: CircularProgressIndicator())),
 
-        error: (e, stack) => const Scaffold(
-          body: Center(child: Text('Bir hata oluştu')),
-        ),
+        error: (e, stack) =>
+            const Scaffold(body: Center(child: Text('Bir hata oluştu'))),
       ),
 
       routes: {

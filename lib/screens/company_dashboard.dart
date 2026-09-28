@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mobil_proje/utils/background.dart';
 import 'package:mobil_proje/utils/task_service.dart';
 import 'map_screen.dart';
+import 'package:mobil_proje/utils/request_status.dart';
 
 enum ViewMode { customers, technicians }
 
@@ -28,7 +29,7 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
   Future<void> logout() async {
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
-    Navigator.pushNamedAndRemoveUntil(context, "/login", (r) => false);
+    await Navigator.pushNamedAndRemoveUntil(context, "/login", (r) => false);
   }
 
   Color chipColor(String status) {
@@ -61,33 +62,20 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
     }
   }
 
-  void goToMapWithLocation(double lat, double lng) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => UniversalMapScreen(
-          userType: 'admin',
-          technicianId: 'tech_123',
-          customerId: 'customer_456',
-          customerLat: lat,
-          customerLng: lng,
-        ),
-      ),
-    );
-  }
-
-  void _confirmDisableTechnician(String uid, String name) async {
+  Future<void> _confirmDisableTechnician(String uid, String name) async {
     final activeTask = await FirebaseFirestore.instance
         .collection("requests")
         .where("technicianId", isEqualTo: uid)
-        .where("status", isNotEqualTo: "Tamamlandı")
+        .where("status", isNotEqualTo: RequestStatus.completed.value)
         .get();
+
+    if (!mounted) return;
 
     if (activeTask.docs.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Row(
-            children: const [
+          content: const Row(
+            children: [
               Icon(Icons.warning_amber, color: Colors.white),
               SizedBox(width: 8),
               Text("Bu teknisyen aktif görevde. Devre dışı yapılamaz!"),
@@ -103,7 +91,7 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
       return;
     }
 
-    showDialog(
+    await showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
         title: Text("$name devre dışı yapılsın mı?"),
@@ -125,10 +113,11 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                     .collection("technicians")
                     .doc(uid)
                     .update({
-                  "active": false,
-                  "disabledAt": FieldValue.serverTimestamp(),
-                });
+                      "active": false,
+                      "disabledAt": FieldValue.serverTimestamp(),
+                    });
 
+                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text("$name devre dışı hale getirildi."),
@@ -136,6 +125,7 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                   ),
                 );
               } catch (e) {
+                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text("Hata: $e"),
@@ -206,11 +196,11 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                       top: Radius.circular(20),
                     ),
                   ),
-                  child: Row(
+                  child: const Row(
                     children: [
-                      const Icon(Icons.engineering, color: Colors.blue),
-                      const SizedBox(width: 12),
-                      const Text(
+                      Icon(Icons.engineering, color: Colors.blue),
+                      SizedBox(width: 12),
+                      Text(
                         "Teknisyen Seç",
                         style: TextStyle(
                           fontSize: 18,
@@ -345,7 +335,7 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                       color: chipColor(status),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: chipTextColor(status).withOpacity(0.3),
+                        color: chipTextColor(status).withValues(alpha: 0.3),
                         width: 1,
                       ),
                     ),
@@ -434,7 +424,7 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
               onPressed: logout,
               icon: const Icon(Icons.logout_rounded),
               style: IconButton.styleFrom(
-                backgroundColor: Colors.white.withOpacity(0.2),
+                backgroundColor: Colors.white.withValues(alpha: 0.2),
               ),
             ),
           ),
@@ -452,10 +442,10 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
-                      BoxShadow(
+                      const BoxShadow(
                         color: Colors.black,
                         blurRadius: 10,
-                        offset: const Offset(0, 4),
+                        offset: Offset(0, 4),
                       ),
                     ],
                   ),
@@ -622,7 +612,7 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
       stream: FirebaseFirestore.instance.collection("customers").snapshots(),
       builder: (context, snap) {
         if (!snap.hasData) {
-          return Center(
+          return const Center(
             child: CircularProgressIndicator(
               strokeWidth: 3,
               valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
@@ -640,21 +630,21 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                 Container(
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
+                    color: Colors.white.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                       width: 2,
                     ),
                   ),
                   child: Icon(
                     Icons.people_outline,
                     size: 72,
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                   ),
                 ),
                 const SizedBox(height: 32),
-                Text(
+                const Text(
                   "Henüz müşteri yok",
                   style: TextStyle(
                     fontSize: 22,
@@ -668,7 +658,7 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                   "Kayıtlı müşteri bulunmuyor",
                   style: TextStyle(
                     fontSize: 15,
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                   ),
                 ),
               ],
@@ -705,13 +695,14 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
 
                   for (var req in requests) {
                     final data = req.data() as Map<String, dynamic>;
-                    final status = data["status"] ?? "Bekliyor";
+                    final status =
+                        data["status"] ?? RequestStatus.pending.value;
 
-                    if (status == "Bekliyor") {
+                    if (status == RequestStatus.pending.value) {
                       pendingRequests++;
-                    } else if (status == "Devam Ediyor") {
+                    } else if (status == RequestStatus.inProgress.value) {
                       activeRequests++;
-                    } else if (status == "Tamamlandı") {
+                    } else if (status == RequestStatus.completed.value) {
                       completedRequests++;
                     }
                   }
@@ -723,7 +714,7 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
+                        color: Colors.black.withValues(alpha: 0.08),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -735,7 +726,7 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                       onTap: () =>
                           _showCustomerRequests(customerId, customerName),
                       borderRadius: BorderRadius.circular(16),
-                      splashColor: Colors.blue.withOpacity(0.1),
+                      splashColor: Colors.blue.withValues(alpha: 0.1),
                       child: Padding(
                         padding: const EdgeInsets.all(20),
                         child: Column(
@@ -912,9 +903,9 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 0),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.4), width: 1.5),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1.5),
       ),
       child: Column(
         children: [
@@ -968,11 +959,9 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
               // Header
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24),
-                  ),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 ),
                 child: Row(
                   children: [
@@ -1089,10 +1078,13 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                         final requestData =
                             requests[index].data() as Map<String, dynamic>;
                         final requestId = requests[index].id;
-                        final status = requestData["status"] ?? "Bekliyor";
+                        final status =
+                            requestData["status"] ??
+                            RequestStatus.pending.value;
                         final issue = requestData["issue"] ?? "Belirtilmedi";
                         final location = requestData["location"];
-                        final createdAt = requestData["createdAt"] as Timestamp?;
+                        final createdAt =
+                            requestData["createdAt"] as Timestamp?;
 
                         return TweenAnimationBuilder(
                           tween: Tween<double>(begin: 0, end: 1),
@@ -1114,7 +1106,7 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
+                                  color: Colors.black.withValues(alpha: 0.05),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -1206,7 +1198,8 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                                     children: [
                                       Expanded(
                                         child: ElevatedButton.icon(
-                                          onPressed: location != null &&
+                                          onPressed:
+                                              location != null &&
                                                   location["lat"] != null &&
                                                   location["lng"] != null
                                               ? () {
@@ -1215,14 +1208,16 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                                                     MaterialPageRoute(
                                                       builder: (context) =>
                                                           UniversalMapScreen(
-                                                        userType: 'admin',
-                                                        technicianId: 'tech_123',
-                                                        customerId: customerId,
-                                                        customerLat:
-                                                            location["lat"],
-                                                        customerLng:
-                                                            location["lng"],
-                                                      ),
+                                                            userType: 'admin',
+                                                            technicianId:
+                                                                requestData["technicianId"],
+                                                            customerId:
+                                                                customerId,
+                                                            customerLat:
+                                                                location["lat"],
+                                                            customerLng:
+                                                                location["lng"],
+                                                          ),
                                                     ),
                                                   );
                                                 }
@@ -1260,17 +1255,23 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: ElevatedButton.icon(
-                                          onPressed: status == "Bekliyor"
+                                          onPressed:
+                                              status ==
+                                                  RequestStatus.pending.value
                                               ? () {
                                                   Navigator.pop(context);
                                                   chooseTechnician(requestId);
                                                 }
                                               : null,
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor: status == "Bekliyor"
+                                            backgroundColor:
+                                                status ==
+                                                    RequestStatus.pending.value
                                                 ? Colors.green.shade600
                                                 : Colors.grey.shade300,
-                                            foregroundColor: status == "Bekliyor"
+                                            foregroundColor:
+                                                status ==
+                                                    RequestStatus.pending.value
                                                 ? Colors.white
                                                 : Colors.grey.shade600,
                                             padding: const EdgeInsets.symmetric(
@@ -1327,7 +1328,7 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
       return "${date.day}/${date.month}/${date.year}";
     }
   }
-  
+
   Widget techniciansUI() {
     return StreamBuilder<QuerySnapshot>(
       stream: techniciansStream,
@@ -1378,10 +1379,16 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                 final uid = tech.id;
                 final loc = data["location"];
 
-                final bool isAssigned = requests.any((r) {
-                  final d = r.data() as Map<String, dynamic>;
-                  return d["technicianId"] == uid && d["status"] != "Tamamlandı";
-                });
+                final activeRequest = requests
+                    .map((r) => r.data() as Map<String, dynamic>)
+                    .where(
+                      (d) =>
+                          d["technicianId"] == uid &&
+                          d["status"] != RequestStatus.completed.value,
+                    )
+                    .firstOrNull;
+                final bool isAssigned = activeRequest != null;
+                final customerLoc = activeRequest?["location"];
 
                 final status = isAssigned ? "Devam Ediyor" : "Boşta";
 
@@ -1417,15 +1424,20 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: isAssigned ? Colors.blue : Colors.green,
+                                    color: isAssigned
+                                        ? Colors.blue
+                                        : Colors.green,
                                     width: 3,
                                   ),
                                 ),
                                 child: CircleAvatar(
                                   radius: 25,
                                   backgroundColor: Colors.grey.shade200,
-                                  backgroundImage: (data["photoUrl"] != null &&
-                                          data["photoUrl"].toString().isNotEmpty)
+                                  backgroundImage:
+                                      (data["photoUrl"] != null &&
+                                          data["photoUrl"]
+                                              .toString()
+                                              .isNotEmpty)
                                       ? NetworkImage(data["photoUrl"])
                                       : const AssetImage(
                                           "assets/default_technician.jpg",
@@ -1500,21 +1512,25 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                               Expanded(
                                 flex: 2,
                                 child: ElevatedButton.icon(
-                                  onPressed: isAssigned &&
-                                          loc != null &&
-                                          loc["lat"] != null &&
-                                          loc["lng"] != null
+                                  onPressed:
+                                      customerLoc != null &&
+                                          customerLoc["lat"] != null &&
+                                          customerLoc["lng"] != null
                                       ? () {
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (context) => UniversalMapScreen(
-                                                userType: 'admin',
-                                                technicianId: uid,
-                                                customerId: 'customer_456',
-                                                customerLat: loc["lat"],
-                                                customerLng: loc["lng"],
-                                              ),
+                                              builder: (context) =>
+                                                  UniversalMapScreen(
+                                                    userType: 'admin',
+                                                    technicianId: uid,
+                                                    customerId:
+                                                        activeRequest?["customerId"],
+                                                    customerLat:
+                                                        customerLoc["lat"],
+                                                    customerLng:
+                                                        customerLoc["lng"],
+                                                  ),
                                             ),
                                           );
                                         }
@@ -1522,8 +1538,10 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.blue.shade600,
                                     foregroundColor: Colors.white,
-                                    disabledBackgroundColor: Colors.grey.shade300,
-                                    disabledForegroundColor: Colors.grey.shade500,
+                                    disabledBackgroundColor:
+                                        Colors.grey.shade300,
+                                    disabledForegroundColor:
+                                        Colors.grey.shade500,
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 14,
                                     ),
@@ -1533,19 +1551,24 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                                     ),
                                   ),
                                   icon: Icon(
-                                    loc != null ? Icons.map_outlined : Icons.location_off,
+                                    loc != null
+                                        ? Icons.map_outlined
+                                        : Icons.location_off,
                                     size: 20,
                                   ),
                                   label: const Text(
                                     "İzle",
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: OutlinedButton(
-                                  onPressed: () => _showTechnicianDetails(uid, data),
+                                  onPressed: () =>
+                                      _showTechnicianDetails(uid, data),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.blue.shade700,
                                     side: BorderSide(
@@ -1601,7 +1624,8 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                               ElevatedButton(
                                 onPressed: isAssigned
                                     ? null
-                                    : () => _confirmDisableTechnician(uid, name),
+                                    : () =>
+                                          _confirmDisableTechnician(uid, name),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: isAssigned
                                       ? Colors.grey.shade400
@@ -1620,12 +1644,14 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                                 child: Icon(
                                   Icons.person_off,
                                   size: 22,
-                                  color: isAssigned ? Colors.white70 : Colors.white,
+                                  color: isAssigned
+                                      ? Colors.white70
+                                      : Colors.white,
                                 ),
                               ),
                             ],
                           ),
-                          SizedBox(height: 5),
+                          const SizedBox(height: 5),
                         ],
                       ),
                     ),
@@ -1682,12 +1708,14 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                         child: CircleAvatar(
                           radius: 25,
                           backgroundColor: Colors.grey.shade200,
-                          backgroundImage: (data["photoUrl"] != null &&
+                          backgroundImage:
+                              (data["photoUrl"] != null &&
                                   data["photoUrl"].toString().isNotEmpty)
                               ? NetworkImage(data["photoUrl"].toString())
                               : const AssetImage(
-                                  "assets/default_technician.jpg",
-                                ) as ImageProvider,
+                                      "assets/default_technician.jpg",
+                                    )
+                                    as ImageProvider,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1740,9 +1768,9 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                         "Kayıt Tarihi",
                         data["createdAt"] != null
                             ? (data["createdAt"] as Timestamp)
-                                .toDate()
-                                .toString()
-                                .split(' ')[0]
+                                  .toDate()
+                                  .toString()
+                                  .split(' ')[0]
                             : "Bilinmiyor",
                       ),
                       const SizedBox(height: 16),
@@ -1795,11 +1823,7 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
               color: Colors.blue.shade50,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              icon,
-              color: Colors.blue.shade700,
-              size: 20,
-            ),
+            child: Icon(icon, color: Colors.blue.shade700, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1808,10 +1832,7 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
               children: [
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -1969,7 +1990,7 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                             border: Border.all(color: Colors.grey[200]!),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.04),
+                                color: Colors.black.withValues(alpha: 0.04),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -2023,9 +2044,9 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                                         .collection("technicians")
                                         .doc(techs[index].id)
                                         .update({
-                                      "active": true,
-                                      "disabledAt": null,
-                                    });
+                                          "active": true,
+                                          "disabledAt": null,
+                                        });
 
                                     if (!context.mounted) return;
                                     Navigator.pop(context);

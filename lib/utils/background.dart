@@ -5,7 +5,7 @@ class AppBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Positioned.fill(
+    return const Positioned.fill(
       child: Image(
         image: AssetImage("assets/background.png"),
         fit: BoxFit.cover,

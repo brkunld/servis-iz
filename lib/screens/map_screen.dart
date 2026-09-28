@@ -40,7 +40,9 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
 
   bool loading = true;
 
-  Future<Uint8List?> _loadTechnicianImageFromStorage(String technicianId) async {
+  Future<Uint8List?> _loadTechnicianImageFromStorage(
+    String technicianId,
+  ) async {
     try {
       final ref = FirebaseStorage.instance.ref("technicians/$technicianId.jpg");
       final data = await ref.getData();
@@ -80,7 +82,9 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
     try {
       if (widget.technicianId == null) return;
 
-      final rawImage = await _loadTechnicianImageFromStorage(widget.technicianId!);
+      final rawImage = await _loadTechnicianImageFromStorage(
+        widget.technicianId!,
+      );
       if (rawImage == null) return;
 
       final circle = await _createCircularMarker(rawImage, 120);
@@ -122,49 +126,49 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
         .doc(widget.technicianId)
         .snapshots()
         .listen((snapshot) {
-      if (!snapshot.exists) {
-        if (mounted) setState(() => loading = false);
-        return;
-      }
+          if (!snapshot.exists) {
+            if (mounted) setState(() => loading = false);
+            return;
+          }
 
-      final data = snapshot.data();
-      final locationAny = data?['location'];
+          final data = snapshot.data();
+          final locationAny = data?['location'];
 
-      double? lat;
-      double? lng;
+          double? lat;
+          double? lng;
 
-      if (locationAny is Map) {
-        if (locationAny['lat'] != null && locationAny['lng'] != null) {
-          lat = (locationAny['lat'] as num).toDouble();
-          lng = (locationAny['lng'] as num).toDouble();
-        }
-      } else if (locationAny is GeoPoint) {
-        lat = locationAny.latitude;
-        lng = locationAny.longitude;
-      }
+          if (locationAny is Map) {
+            if (locationAny['lat'] != null && locationAny['lng'] != null) {
+              lat = (locationAny['lat'] as num).toDouble();
+              lng = (locationAny['lng'] as num).toDouble();
+            }
+          } else if (locationAny is GeoPoint) {
+            lat = locationAny.latitude;
+            lng = locationAny.longitude;
+          }
 
-      if (lat != null && lng != null) {
-        if (mounted) {
-          setState(() {
-            technicianPosition = LatLng(lat!, lng!);
-            loading = false;
-          });
-        }
+          if (lat != null && lng != null) {
+            if (mounted) {
+              setState(() {
+                technicianPosition = LatLng(lat!, lng!);
+                loading = false;
+              });
+            }
 
-        if (technicianMarkerIcon == null) {
-          _loadTechnicianMarker();
-        }
+            if (technicianMarkerIcon == null) {
+              _loadTechnicianMarker();
+            }
 
-        Future.microtask(_updateCameraToShowBoth);
-      } else {
-        if (mounted) setState(() => loading = false);
-      }
-    });
+            Future.microtask(_updateCameraToShowBoth);
+          } else {
+            if (mounted) setState(() => loading = false);
+          }
+        });
   }
 
   Future<void> _getCurrentLocationAndStartTracking() async {
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -189,7 +193,7 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
       if (mounted) setState(() => loading = false);
 
       _startLocationUpdateToFirebase();
-      Future.microtask(_updateCameraToShowBoth);
+      unawaited(Future.microtask(_updateCameraToShowBoth));
     } catch (_) {
       if (mounted) setState(() => loading = false);
     }
@@ -198,31 +202,32 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
   void _startLocationUpdateToFirebase() {
     if (widget.technicianId == null) return;
 
-    locationStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 20,
-      ),
-    ).listen((Position position) {
-      if (mounted) {
-        setState(() {
-          myCurrentPosition = position;
+    locationStream =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 20,
+          ),
+        ).listen((Position position) {
+          if (mounted) {
+            setState(() {
+              myCurrentPosition = position;
+            });
+          }
+
+          FirebaseFirestore.instance
+              .collection('technicians')
+              .doc(widget.technicianId)
+              .set({
+                'location': {
+                  'lat': position.latitude,
+                  'lng': position.longitude,
+                  'updatedAt': FieldValue.serverTimestamp(),
+                },
+              }, SetOptions(merge: true));
+
+          Future.microtask(_updateCameraToShowBoth);
         });
-      }
-
-      FirebaseFirestore.instance
-          .collection('technicians')
-          .doc(widget.technicianId)
-          .set({
-        'location': {
-          'lat': position.latitude,
-          'lng': position.longitude,
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-      }, SetOptions(merge: true));
-
-      Future.microtask(_updateCameraToShowBoth);
-    });
   }
 
   LatLng? _customerLatLng() {
@@ -265,10 +270,10 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
       return;
     }
 
-    double minLat = c.latitude < t.latitude ? c.latitude : t.latitude;
-    double maxLat = c.latitude > t.latitude ? c.latitude : t.latitude;
-    double minLng = c.longitude < t.longitude ? c.longitude : t.longitude;
-    double maxLng = c.longitude > t.longitude ? c.longitude : t.longitude;
+    final double minLat = c.latitude < t.latitude ? c.latitude : t.latitude;
+    final double maxLat = c.latitude > t.latitude ? c.latitude : t.latitude;
+    final double minLng = c.longitude < t.longitude ? c.longitude : t.longitude;
+    final double maxLng = c.longitude > t.longitude ? c.longitude : t.longitude;
 
     final bounds = LatLngBounds(
       southwest: LatLng(minLat, minLng),
@@ -324,7 +329,7 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
           markerId: const MarkerId('technician'),
           position: tech,
           icon: technicianMarkerIcon != null
-              ? BitmapDescriptor.fromBytes(technicianMarkerIcon!)
+              ? BitmapDescriptor.bytes(technicianMarkerIcon!)
               : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
           infoWindow: const InfoWindow(
             title: 'Teknisyen',
@@ -349,10 +354,7 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
         points: [customer, tech],
         color: Colors.blue.shade700,
         width: 5,
-        patterns: [
-          PatternItem.dash(20),
-          PatternItem.gap(10),
-        ],
+        patterns: [PatternItem.dash(20), PatternItem.gap(10)],
       ),
     };
   }
@@ -374,7 +376,8 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final initial = _customerLatLng() ?? _technicianLatLng() ?? const LatLng(39.0, 35.0);
+    final initial =
+        _customerLatLng() ?? _technicianLatLng() ?? const LatLng(39.0, 35.0);
 
     return Scaffold(
       appBar: AppBar(
@@ -392,10 +395,7 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
       body: Stack(
         children: [
           GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: initial,
-              zoom: 14,
-            ),
+            initialCameraPosition: CameraPosition(target: initial, zoom: 14),
             onMapCreated: (controller) {
               mapController = controller;
               Future.microtask(_updateCameraToShowBoth);
@@ -429,7 +429,9 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
               ),
             ),
 
-          if (widget.userType == 'technician' && !loading && _customerLatLng() != null)
+          if (widget.userType == 'technician' &&
+              !loading &&
+              _customerLatLng() != null)
             Positioned(
               bottom: 20,
               left: MediaQuery.of(context).size.width * 0.05,

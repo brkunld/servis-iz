@@ -69,8 +69,7 @@ class _ChatScreenState extends State<ChatScreen> {
           });
         }
       }
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   Future<void> _sendMessage() async {
@@ -80,8 +79,9 @@ class _ChatScreenState extends State<ChatScreen> {
     if (currentUser == null) return;
 
     final senderId = currentUser.uid;
-    final receiverId =
-        senderId == widget.customerId ? widget.technicianId : widget.customerId;
+    final receiverId = senderId == widget.customerId
+        ? widget.technicianId
+        : widget.customerId;
 
     try {
       await FirebaseFirestore.instance.collection("messages").add({
@@ -104,6 +104,7 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       });
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Mesaj gönderilemedi: $e"),
@@ -132,9 +133,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final currentUid = currentUser.uid;
@@ -154,10 +153,7 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             Text(
               otherUserName ?? "Sohbet",
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -239,17 +235,18 @@ class _ChatScreenState extends State<ChatScreen> {
                   itemBuilder: (context, index) {
                     final msg = messages[index];
                     final data =
-                        msg.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+                        msg.data() as Map<String, dynamic>? ??
+                        <String, dynamic>{};
                     final bool isMe = data["senderId"] == currentUid;
                     final ts = data["timestamp"];
-                    final Timestamp? timestamp =
-                        ts is Timestamp ? ts : null;
+                    final Timestamp? timestamp = ts is Timestamp ? ts : null;
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Row(
-                        mainAxisAlignment:
-                            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                        mainAxisAlignment: isMe
+                            ? MainAxisAlignment.end
+                            : MainAxisAlignment.start,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           if (!isMe) ...[
@@ -288,14 +285,18 @@ class _ChatScreenState extends State<ChatScreen> {
                                     borderRadius: BorderRadius.only(
                                       topLeft: const Radius.circular(18),
                                       topRight: const Radius.circular(18),
-                                      bottomLeft:
-                                          Radius.circular(isMe ? 18 : 4),
-                                      bottomRight:
-                                          Radius.circular(isMe ? 4 : 18),
+                                      bottomLeft: Radius.circular(
+                                        isMe ? 18 : 4,
+                                      ),
+                                      bottomRight: Radius.circular(
+                                        isMe ? 4 : 18,
+                                      ),
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.05),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.05,
+                                        ),
                                         blurRadius: 5,
                                         offset: const Offset(0, 2),
                                       ),
@@ -313,8 +314,9 @@ class _ChatScreenState extends State<ChatScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
                                   child: Text(
                                     _formatTime(timestamp),
                                     style: TextStyle(
@@ -354,7 +356,7 @@ class _ChatScreenState extends State<ChatScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
@@ -390,10 +392,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [
-                          Colors.blue.shade400,
-                          Colors.blue.shade600,
-                        ],
+                        colors: [Colors.blue.shade400, Colors.blue.shade600],
                       ),
                       shape: BoxShape.circle,
                     ),

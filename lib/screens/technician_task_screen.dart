@@ -7,6 +7,7 @@ import 'package:mobil_proje/utils/task_service.dart' as task_service;
 import 'map_screen.dart';
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
+import 'package:mobil_proje/utils/request_status.dart';
 
 class TechnicianTaskScreen extends StatefulWidget {
   const TechnicianTaskScreen({super.key});
@@ -37,7 +38,7 @@ class _TechnicianTaskScreenState extends State<TechnicianTaskScreen> {
 
   String? expandedAvailableId;
 
-  void startLocationUpdates() async {
+  Future<void> startLocationUpdates() async {
     final uid = FirebaseAuth.instance.currentUser!.uid;
 
     LocationPermission permission = await Geolocator.checkPermission();
@@ -46,19 +47,21 @@ class _TechnicianTaskScreenState extends State<TechnicianTaskScreen> {
     }
 
     if (permission == LocationPermission.deniedForever) {
-      print("Kalıcı izin reddedildi");
+      debugPrint("Kalıcı izin reddedildi");
       return;
     }
     await Geolocator.requestPermission();
     await Geolocator.isLocationServiceEnabled();
 
-    await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+    await Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+    );
 
     locationStream =
         Geolocator.getPositionStream(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.best,
-            distanceFilter: 20, 
+            distanceFilter: 20,
             timeLimit: Duration(hours: 12),
           ),
         ).listen((Position pos) async {
@@ -74,11 +77,9 @@ class _TechnicianTaskScreenState extends State<TechnicianTaskScreen> {
                   },
                 });
 
-            print(
-              "📍 [BACKGROUND] Konum güncellendi: ${pos.latitude}, ${pos.longitude}",
-            );
+            debugPrint("Konum güncellendi: ${pos.latitude}, ${pos.longitude}");
           } catch (e) {
-            print("Firebase yazılamadı: $e");
+            debugPrint("Firebase yazılamadı: $e");
           }
         });
   }
@@ -108,7 +109,7 @@ class _TechnicianTaskScreenState extends State<TechnicianTaskScreen> {
           if (snapshot.docs.isEmpty) return null;
 
           for (var doc in snapshot.docs) {
-            if (doc["status"] != "Tamamlandı") {
+            if (doc["status"] != RequestStatus.completed.value) {
               selectedRequestId = doc.id;
               return doc;
             }
@@ -120,7 +121,7 @@ class _TechnicianTaskScreenState extends State<TechnicianTaskScreen> {
   Stream<QuerySnapshot> getAvailableTasks() {
     return FirebaseFirestore.instance
         .collection("requests")
-        .where("status", isEqualTo: "Bekliyor")
+        .where("status", isEqualTo: RequestStatus.pending.value)
         .snapshots();
   }
 
@@ -131,7 +132,7 @@ class _TechnicianTaskScreenState extends State<TechnicianTaskScreen> {
     return FirebaseFirestore.instance
         .collection("requests")
         .where("technicianId", isEqualTo: user.uid)
-        .where("status", isEqualTo: "Tamamlandı")
+        .where("status", isEqualTo: RequestStatus.completed.value)
         .snapshots();
   }
 
@@ -181,9 +182,9 @@ class _TechnicianTaskScreenState extends State<TechnicianTaskScreen> {
       if (mounted) setState(() => selectedRequestId = null);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Görev tamamlanamadı: $e")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Görev tamamlanamadı: $e")));
       }
     } finally {
       if (mounted) setState(() => loading = false);
@@ -229,20 +230,21 @@ class _TechnicianTaskScreenState extends State<TechnicianTaskScreen> {
   Future<void> logout() async {
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
-    Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
+    await Navigator.pushNamedAndRemoveUntil(
+      context,
+      "/login",
+      (route) => false,
+    );
   }
+
   Color statusColor(String s) {
-    switch (s) {
-      case "Bekliyor":
+    switch (RequestStatus.fromValue(s)) {
+      case RequestStatus.pending:
         return Colors.blue.shade100;
-      case "Atandı":
-        return Colors.blue.shade200;
-      case "Devam Ediyor":
+      case RequestStatus.inProgress:
         return Colors.blue.shade300;
-      case "Tamamlandı":
+      case RequestStatus.completed:
         return Colors.blue.shade400;
-      default:
-        return Colors.grey.shade200;
     }
   }
 
@@ -257,7 +259,7 @@ class _TechnicianTaskScreenState extends State<TechnicianTaskScreen> {
         actions: [
           IconButton(
             onPressed: logout,
-            icon: Icon(Icons.logout, color: Colors.black),
+            icon: const Icon(Icons.logout, color: Colors.black),
           ),
         ],
       ),
@@ -609,7 +611,7 @@ class _TechnicianTaskScreenState extends State<TechnicianTaskScreen> {
                                   ),
                                 ),
                               );
-                            }).toList(),
+                            }),
                           ],
 
                           if (completedDocs.isNotEmpty) ...[
@@ -970,15 +972,12 @@ class _TechnicianTaskScreenState extends State<TechnicianTaskScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: () => openMap(
-                          context,
-                          data,
-                        ),
-                        icon: Icon(
+                        onPressed: () => openMap(context, data),
+                        icon: const Icon(
                           Icons.map_outlined,
                           color: Colors.blueAccent,
                         ),
-                        label: Text(
+                        label: const Text(
                           "Haritada Göster",
                           style: TextStyle(
                             color: Colors.blueAccent,
@@ -1178,9 +1177,9 @@ class _TechnicianTaskScreenState extends State<TechnicianTaskScreen> {
                             ? const SizedBox.shrink()
                             : const Icon(Icons.check_circle, size: 22),
                         label: loading
-                            ? Row(
+                            ? const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
-                                children: const [
+                                children: [
                                   SizedBox(
                                     width: 20,
                                     height: 20,

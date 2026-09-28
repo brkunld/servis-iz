@@ -59,3 +59,9 @@ app.*.map.json
 /firestore-tests/node_modules/
 firebase-debug.log
 firestore-debug.log
+/tool/seed/node_modules/
+*-debug.log
+
+# Firebase servis hesabı anahtarları (asla depoya girmez)
+*service-account*.json
+servis-hesabi*.json
