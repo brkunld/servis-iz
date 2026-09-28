@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:mobil_proje/utils/background.dart';
+import 'package:mobil_proje/core/widgets/app_background.dart';
 import 'package:mobil_proje/utils/route.dart';
 import 'package:mobil_proje/screens/login_screen.dart';
 import 'package:mobil_proje/screens/verify_email_screen.dart';

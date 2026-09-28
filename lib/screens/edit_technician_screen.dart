@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:mobil_proje/utils/background.dart';
+import 'package:mobil_proje/core/widgets/app_background.dart';
 import 'package:mobil_proje/utils/technician_photo.dart';
 
 class EditTechnicianScreen extends StatefulWidget {

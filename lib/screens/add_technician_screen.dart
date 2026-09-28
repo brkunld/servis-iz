@@ -6,9 +6,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:mobil_proje/utils/emulator.dart';
+import 'package:mobil_proje/core/firebase/emulator.dart';
 import 'package:mobil_proje/utils/firebase_options.dart';
-import 'package:mobil_proje/utils/background.dart';
+import 'package:mobil_proje/core/widgets/app_background.dart';
 import 'package:mobil_proje/utils/technician_photo.dart';
 
 class AddTechnicianScreen extends StatefulWidget {

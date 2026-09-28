@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:mobil_proje/screens/customer_request_screen.dart';
-import 'package:mobil_proje/utils/background.dart';
+import 'package:mobil_proje/core/widgets/app_background.dart';
 import 'package:mobil_proje/utils/route.dart';
 
 /// E-postasını doğrulamamış müşteriye gösterilir. Firestore kuralları da

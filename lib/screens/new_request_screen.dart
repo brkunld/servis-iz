@@ -4,9 +4,9 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mobil_proje/screens/map_picker_screen.dart';
-import 'package:mobil_proje/utils/background.dart';
+import 'package:mobil_proje/core/widgets/app_background.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:mobil_proje/utils/request_status.dart';
+import 'package:mobil_proje/features/requests/domain/request_status.dart';
 
 class NewRequestScreen extends StatefulWidget {
   const NewRequestScreen({super.key});

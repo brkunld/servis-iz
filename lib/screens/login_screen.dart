@@ -6,9 +6,9 @@ import 'package:mobil_proje/screens/customer_request_screen.dart';
 import 'package:mobil_proje/screens/technician_task_screen.dart';
 import 'package:mobil_proje/screens/register_screen.dart';
 import 'package:mobil_proje/screens/verify_email_screen.dart';
-import 'package:mobil_proje/utils/background.dart';
+import 'package:mobil_proje/core/widgets/app_background.dart';
 import 'package:mobil_proje/utils/route.dart';
-import 'package:mobil_proje/utils/user_role.dart';
+import 'package:mobil_proje/features/auth/domain/user_role.dart';
 
 class LoginScreen extends StatefulWidget {
   final String? showMessage;

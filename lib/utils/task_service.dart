@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'request_status.dart';
+import 'package:mobil_proje/features/requests/domain/request_status.dart';
 
 /// Görev alınamadığında kullanıcıya gösterilecek mesajı taşır.
 class TaskException implements Exception {

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:mobil_proje/utils/background.dart';
+import 'package:mobil_proje/core/widgets/app_background.dart';
 import 'package:mobil_proje/utils/task_service.dart';
 import 'map_screen.dart';
-import 'package:mobil_proje/utils/request_status.dart';
+import 'package:mobil_proje/features/requests/domain/request_status.dart';
 import 'package:mobil_proje/utils/technician_photo.dart';
 
 enum ViewMode { customers, technicians }
