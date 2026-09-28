@@ -70,6 +70,19 @@ npm test
 
 Kuralları kendi projenize yüklemek için: `firebase deploy --only firestore:rules`
 
+## Mimari
+
+Kod özellik başına klasörlenmiştir (`lib/features/<özellik>/{domain,data,presentation}`).
+Ekranlar Firestore'u doğrudan çağırmaz: **ekran → Riverpod provider → repository → Firestore**.
+Yönlendirme go_router ile yapılır; oturum durumuna göre kullanıcı rolünün ekranına gider.
+Talep durumu (`Bekliyor → Devam Ediyor → Tamamlandı`) küçük bir durum makinesidir.
+Ayrıntılı ve sade anlatım: [docs/FAZ1-ANLATIM.md](docs/FAZ1-ANLATIM.md).
+
+```
+flutter analyze   # strict-casts açık
+flutter test      # model, durum makinesi, yönlendirme, repository testleri
+```
+
 ## Geliştirici
 
 Burak Ünaldı

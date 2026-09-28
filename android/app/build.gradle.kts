@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -32,7 +34,7 @@ android {
 
         // Google Maps anahtarı depoya girmez: android/local.properties içindeki
         // MAPS_API_KEY değerinden okunur.
-        val localProps = java.util.Properties()
+        val localProps = Properties()
         val localPropsFile = rootProject.file("local.properties")
         if (localPropsFile.exists()) {
             localPropsFile.inputStream().use { localProps.load(it) }
