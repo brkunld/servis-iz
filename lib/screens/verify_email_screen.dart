@@ -28,7 +28,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
         // Kuralların yeni doğrulama durumunu görmesi için token yenilenir.
         await refreshed.getIdToken(true);
         if (!mounted) return;
-        Navigator.pushReplacement(
+        await Navigator.pushReplacement(
           context,
           iosPageRoute(const CustomerRequestMenu()),
         );
@@ -54,7 +54,11 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
-    Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
+    await Navigator.pushNamedAndRemoveUntil(
+      context,
+      "/login",
+      (route) => false,
+    );
   }
 
   void _show(String msg) {
@@ -89,11 +93,18 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.mark_email_unread, size: 56, color: Colors.blue),
+                    const Icon(
+                      Icons.mark_email_unread,
+                      size: 56,
+                      color: Colors.blue,
+                    ),
                     const SizedBox(height: 16),
                     const Text(
                       "E-postanı doğrula",
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Text(
@@ -110,7 +121,9 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text("Doğruladım"),
                       ),

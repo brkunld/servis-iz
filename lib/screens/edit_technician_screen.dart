@@ -187,7 +187,7 @@ class _EditTechnicianScreenState extends State<EditTechnicianScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.blue.withOpacity(0.3),
+                            color: Colors.blue.withValues(alpha: 0.3),
                             blurRadius: 20,
                             spreadRadius: 5,
                           ),
@@ -248,7 +248,7 @@ class _EditTechnicianScreenState extends State<EditTechnicianScreen> {
                     Text(
                       "Fotoğrafı değiştirmek için tıklayın",
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -259,11 +259,11 @@ class _EditTechnicianScreenState extends State<EditTechnicianScreen> {
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.95),
+                        color: Colors.white.withValues(alpha: 0.95),
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -368,7 +368,9 @@ class _EditTechnicianScreenState extends State<EditTechnicianScreen> {
                                     : Colors.green,
                                 foregroundColor: Colors.white,
                                 elevation: 8,
-                                shadowColor: Colors.green.withOpacity(0.5),
+                                shadowColor: Colors.green.withValues(
+                                  alpha: 0.5,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),

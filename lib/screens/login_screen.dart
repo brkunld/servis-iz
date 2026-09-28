@@ -31,9 +31,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (widget.showMessage != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(widget.showMessage!)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(widget.showMessage!)));
       });
     }
   }
@@ -106,8 +106,10 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     try {
-      final cred = await FirebaseAuth.instance
-          .signInWithEmailAndPassword(email: email, password: pass);
+      final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: pass,
+      );
 
       final user = cred.user!;
       final role = await findUserRole(user.uid, retries: 0);
@@ -140,9 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _show(String msg) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override

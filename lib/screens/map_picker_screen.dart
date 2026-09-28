@@ -41,7 +41,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
               });
 
               try {
-                List<Placemark> marks = await placemarkFromCoordinates(
+                final List<Placemark> marks = await placemarkFromCoordinates(
                   pos.latitude,
                   pos.longitude,
                 );
@@ -55,7 +55,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                     selectedDistrict =
                         p.subAdministrativeArea ?? p.locality ?? "";
 
-                    List<String> addressParts = [];
+                    final List<String> addressParts = [];
 
                     if (p.subThoroughfare != null &&
                         p.subThoroughfare!.isNotEmpty) {
@@ -158,8 +158,8 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
-                        children: const [
+                      const Row(
+                        children: [
                           Icon(Icons.location_on, color: Colors.red),
                           SizedBox(width: 8),
                           Text(

@@ -6,6 +6,7 @@ import 'package:mobil_proje/utils/background.dart';
 import 'package:mobil_proje/utils/task_service.dart';
 import 'new_request_screen.dart';
 import 'map_screen.dart';
+import 'package:mobil_proje/utils/request_status.dart';
 
 class CustomerRequestMenu extends StatefulWidget {
   const CustomerRequestMenu({super.key});
@@ -31,8 +32,13 @@ class _CustomerRequestMenuState extends State<CustomerRequestMenu> {
     try {
       await FirebaseAuth.instance.signOut();
       if (!context.mounted) return;
-      Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
+      await Navigator.pushNamedAndRemoveUntil(
+        context,
+        "/login",
+        (route) => false,
+      );
     } catch (e) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Çıkış yapılamadı: $e")));
@@ -40,20 +46,15 @@ class _CustomerRequestMenuState extends State<CustomerRequestMenu> {
   }
 
   Color _statusColor(String status) {
-    switch (status) {
-      case "Bekliyor":
+    switch (RequestStatus.fromValue(status)) {
+      case RequestStatus.pending:
         return Colors.green.shade300;
-      case "Atandı":
-        return Colors.blue.shade200;
-      case "Devam Ediyor":
+      case RequestStatus.inProgress:
         return Colors.orange.shade200;
-      case "Tamamlandı":
+      case RequestStatus.completed:
         return Colors.green;
-      default:
-        return Colors.grey.shade300;
     }
   }
-
 
   void _openMap(
     BuildContext context,
@@ -114,10 +115,12 @@ class _CustomerRequestMenuState extends State<CustomerRequestMenu> {
 
     try {
       await FirebaseFirestore.instance.collection("requests").doc(id).delete();
+      if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Talep silindi.")));
     } catch (e) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Silme hatası: $e")));
@@ -158,6 +161,7 @@ class _CustomerRequestMenuState extends State<CustomerRequestMenu> {
 
     if (user == null) {
       Future.delayed(Duration.zero, () {
+        if (!context.mounted) return;
         Navigator.pushNamedAndRemoveUntil(context, "/login", (_) => false);
       });
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -218,7 +222,7 @@ class _CustomerRequestMenuState extends State<CustomerRequestMenu> {
                       Icon(
                         Icons.inbox_outlined,
                         size: 120,
-                        color: Colors.white.withOpacity(0.7),
+                        color: Colors.white.withValues(alpha: 0.7),
                       ),
                       const SizedBox(height: 20),
                       const Text(
@@ -249,7 +253,7 @@ class _CustomerRequestMenuState extends State<CustomerRequestMenu> {
                   final doc = docs[index];
                   final data = doc.data() as Map<String, dynamic>;
 
-                  final status = data["status"] ?? "Bekliyor";
+                  final status = data["status"] ?? RequestStatus.pending.value;
                   final issue = data["issue"] ?? "Bildirilmedi";
                   final address = data["address"] ?? "Adres belirtilmemiş";
                   final kat = data["kat"] ?? "-";
@@ -260,8 +264,8 @@ class _CustomerRequestMenuState extends State<CustomerRequestMenu> {
                       : null;
 
                   final bool canOpenMap =
-                      status == "Atandı" || status == "Devam Ediyor";
-                  final bool canDelete = status == "Bekliyor";
+                      status == RequestStatus.inProgress.value;
+                  final bool canDelete = status == RequestStatus.pending.value;
                   final bool isExpanded = expandedCardId == doc.id;
 
                   if (!commentControllers.containsKey(doc.id)) {
@@ -280,11 +284,11 @@ class _CustomerRequestMenuState extends State<CustomerRequestMenu> {
                         borderRadius: BorderRadius.circular(20),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.95),
+                            color: Colors.white.withValues(alpha: 0.95),
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
+                                color: Colors.black.withValues(alpha: 0.1),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -295,7 +299,9 @@ class _CustomerRequestMenuState extends State<CustomerRequestMenu> {
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: _statusColor(status).withOpacity(0.2),
+                                  color: _statusColor(
+                                    status,
+                                  ).withValues(alpha: 0.2),
                                   borderRadius: const BorderRadius.only(
                                     topLeft: Radius.circular(20),
                                     topRight: Radius.circular(20),
@@ -303,7 +309,6 @@ class _CustomerRequestMenuState extends State<CustomerRequestMenu> {
                                 ),
                                 child: Row(
                                   children: [
-                                    
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment:
@@ -671,7 +676,8 @@ class _CustomerRequestMenuState extends State<CustomerRequestMenu> {
                                           ),
                                         ),
 
-                                      if (status == "Tamamlandı" &&
+                                      if (status ==
+                                              RequestStatus.completed.value &&
                                           data["rated"] != true) ...[
                                         const SizedBox(height: 20),
                                         Container(
@@ -732,11 +738,11 @@ class _CustomerRequestMenuState extends State<CustomerRequestMenu> {
                                                 mainAxisAlignment:
                                                     MainAxisAlignment.center,
                                                 children: List.generate(5, (i) {
-                                                  int starIndex = i + 1;
-                                                  int currentStars =
+                                                  final int starIndex = i + 1;
+                                                  final int currentStars =
                                                       selectedStars[doc.id] ??
                                                       0;
-                                                  bool filled =
+                                                  final bool filled =
                                                       starIndex <= currentStars;
 
                                                   return IconButton(
@@ -849,7 +855,7 @@ class _CustomerRequestMenuState extends State<CustomerRequestMenu> {
                                       ],
 
                                       const SizedBox(height: 12),
-                                      
+
                                       Center(
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,

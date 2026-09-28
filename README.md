@@ -28,6 +28,27 @@ Gizli yapılandırma dosyaları depoda yoktur. Çalıştırmak için kendi Fireb
 4. `flutter run`
 
 
+
+## Yerel geliştirme (Firebase emülatörü)
+
+Gerçek projeye dokunmadan demo verisiyle çalışmak için:
+
+```
+firebase emulators:start --project demo-servisiz
+cd tool/seed && npm install && npm run seed      # başka bir terminalde
+flutter run --dart-define=USE_FIREBASE_EMULATOR=true
+```
+
+Demo hesaplar (şifre `demo1234`, yalnız emülatörde):
+
+| Rol | E-posta |
+|---|---|
+| Şirket | company@example.com |
+| Teknisyen | technician@example.com, technician2@example.com |
+| Müşteri | customer@example.com |
+
+Gerçek cihazda `--dart-define=EMULATOR_HOST=<bilgisayarın IP adresi>` ekleyin.
+
 ## Güvenlik kuralları
 
 Firestore kuralları `firestore.rules` dosyasındadır. Özetle:

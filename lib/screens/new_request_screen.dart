@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mobil_proje/screens/map_picker_screen.dart';
 import 'package:mobil_proje/utils/background.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:mobil_proje/utils/request_status.dart';
 
 class NewRequestScreen extends StatefulWidget {
   const NewRequestScreen({super.key});
@@ -31,7 +32,7 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
   double? selectedLng;
 
   List<String> _cities = [];
-  Map<String, List<String>> _districts = {};
+  final Map<String, List<String>> _districts = {};
 
   @override
   void initState() {
@@ -41,10 +42,10 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
   }
 
   // ✅ HARİTADAN KONUM SEÇİMİ
-  void _openMapPicker() async {
+  Future<void> _openMapPicker() async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => MapPickerScreen()),
+      MaterialPageRoute(builder: (_) => const MapPickerScreen()),
     );
 
     if (result != null) {
@@ -62,7 +63,7 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
 
   Future<Map<String, double>> addressToLatLng(String address) async {
     try {
-      List<Location> locations = await locationFromAddress(address);
+      final List<Location> locations = await locationFromAddress(address);
 
       if (locations.isEmpty) {
         throw Exception("Adres bulunamadı");
@@ -131,7 +132,7 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
   // -------------------------------------------------------------
   // ⭐ MANUEL ADRES EKLEME
   // -------------------------------------------------------------
-  void _adresEkle() async {
+  Future<void> _adresEkle() async {
     final mahalleController = TextEditingController();
     final postaKoduController = TextEditingController();
     final sokakController = TextEditingController();
@@ -150,7 +151,7 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
               child: Column(
                 children: [
                   DropdownButtonFormField<String>(
-                    value: tempCity,
+                    initialValue: tempCity,
                     items: _cities
                         .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                         .toList(),
@@ -165,7 +166,7 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
                   const SizedBox(height: 12),
 
                   DropdownButtonFormField<String>(
-                    value: tempDistrict,
+                    initialValue: tempDistrict,
                     items:
                         (tempCity != null
                                 ? _districts[tempCity!] ?? <String>[]
@@ -190,7 +191,7 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
 
                   TextField(
                     controller: sokakController,
@@ -267,7 +268,7 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
 
       if (lat == null || lng == null) {
         try {
-          List<Location> result = await locationFromAddress(
+          final List<Location> result = await locationFromAddress(
             "$addressText $_selectedDistrict $_selectedCity Türkiye",
           );
 
@@ -289,7 +290,7 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
         "daire": _daireController.text.trim(),
         "city": _selectedCity!,
         "district": _selectedDistrict!,
-        "status": "Bekliyor",
+        "status": RequestStatus.pending.value,
         "createdAt": FieldValue.serverTimestamp(),
         "technicianId": null,
 
@@ -304,7 +305,7 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
 
       if (!mounted) return;
 
-      showDialog(
+      await showDialog<void>(
         context: context,
         builder: (_) => AlertDialog(
           title: const Text("Talep Gönderildi"),
@@ -437,7 +438,7 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
                               },
                             ),
                           ),
-                          SizedBox(width: 12),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: TextFormField(
                               controller: _daireController,

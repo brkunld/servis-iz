@@ -45,12 +45,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       final credential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
 
-      User user = credential.user!;
-      String uid = user.uid;
+      final User user = credential.user!;
+      final String uid = user.uid;
 
       await user.sendEmailVerification();
 
@@ -63,7 +63,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (!mounted) return;
 
-      Navigator.pushAndRemoveUntil(
+      await Navigator.pushAndRemoveUntil(
         context,
         iosPageRoute(const VerifyEmailScreen()),
         (route) => false,
@@ -76,9 +76,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Kayıt tamamlanamadı: $e")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Kayıt tamamlanamadı: $e")));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
