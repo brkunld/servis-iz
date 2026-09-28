@@ -48,7 +48,7 @@ class TechServiceApp extends ConsumerWidget {
     final authState = ref.watch(authStateProvider);
 
     return MaterialApp(
-      title: 'Technical Service App',
+      title: 'Servisİz',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,

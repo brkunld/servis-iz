@@ -24,7 +24,7 @@
 
 
     <application
-        android:label="TSYS"
+        android:label="Servisİz"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 

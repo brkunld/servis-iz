@@ -1,11 +1,11 @@
 {
-    "name": "mobil_proje",
-    "short_name": "mobil_proje",
+    "name": "Servisİz",
+    "short_name": "Servisİz",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Teknik servis yönetim uygulaması",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -1,6 +1,6 @@
-# Teknik Servis Yönetim Sistemi
+# Servisİz
 
-Mobil Programlama dersi için Flutter ve Firebase ile geliştirilmiş bir teknik servis uygulaması.
+Teknik servis yönetim uygulaması. Mobil Programlama dersi için Flutter ve Firebase ile geliştirildi.
 Müşteri, servis şirketi ve teknisyen olmak üzere üç rol vardır:
 
 - **Müşteri:** Kayıt olur, konum seçerek yeni servis talebi açar, taleplerini takip eder ve atanan teknisyenle mesajlaşır.
