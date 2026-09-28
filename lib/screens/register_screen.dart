@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mobil_proje/utils/background.dart';
 import 'package:mobil_proje/utils/route.dart';
 import 'package:mobil_proje/screens/login_screen.dart';
+import 'package:mobil_proje/screens/verify_email_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -62,19 +63,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Kayıt başarılı! Email doğrulama linki gönderildi. Lütfen emailinizi kontrol edin.",
-          ),
-        ),
+      Navigator.pushAndRemoveUntil(
+        context,
+        iosPageRoute(const VerifyEmailScreen()),
+        (route) => false,
       );
-
-      Navigator.pushReplacementNamed(context, '/login');
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.message ?? "Bir hata oluştu.")),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Kayıt tamamlanamadı: $e")),
         );
       }
     } finally {

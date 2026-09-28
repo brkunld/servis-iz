@@ -1,10 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobil_proje/screens/edit_technician_screen.dart';
 import 'utils/firebase_options.dart';
+import 'utils/user_role.dart';
 import 'screens/login_screen.dart';
 import 'screens/customer_request_screen.dart';
 import 'screens/company_dashboard.dart';
@@ -12,6 +12,7 @@ import 'screens/technician_task_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/add_technician_screen.dart';
 import 'screens/new_request_screen.dart';
+import 'screens/verify_email_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,21 +28,6 @@ final authStateProvider = StreamProvider<User?>((ref) {
 
 class TechServiceApp extends ConsumerWidget {
   const TechServiceApp({super.key});
-
-  Future<String?> _getUserRole(String uid) async {
-    final db = FirebaseFirestore.instance;
-
-    final technician = await db.collection('technicians').doc(uid).get();
-    if (technician.exists) return 'technician';
-
-    final company = await db.collection('companies').doc(uid).get();
-    if (company.exists) return 'company';
-
-    final customer = await db.collection('customers').doc(uid).get();
-    if (customer.exists) return 'customer';
-
-    return null;
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -61,8 +47,8 @@ class TechServiceApp extends ConsumerWidget {
             return const LoginScreen();
           }
 
-          return FutureBuilder<String?>(
-            future: _getUserRole(user.uid),
+          return FutureBuilder<UserRole?>(
+            future: findUserRole(user.uid),
             builder: (context, snap) {
 
               if (snap.connectionState == ConnectionState.waiting) {
@@ -84,6 +70,12 @@ class TechServiceApp extends ConsumerWidget {
 
               final role = snap.data;
 
+              // Oturumdan atmadan doğrulama ekranı gösterilir; böylece kayıt
+              // sırasında müşteri belgesinin yazılması yarıda kesilmez.
+              if (needsEmailVerification(user, role)) {
+                return const VerifyEmailScreen();
+              }
+
               if (role == null) {
                 debugPrint("Kullanıcı rolü bulunamadı: UID => ${user.uid}");
 
@@ -95,9 +87,14 @@ class TechServiceApp extends ConsumerWidget {
                 );
               }
 
-              if (role == 'company') return const CompanyDashboard();
-              if (role == 'technician') return const TechnicianTaskScreen();
-              return const CustomerRequestMenu();
+              switch (role) {
+                case UserRole.company:
+                  return const CompanyDashboard();
+                case UserRole.technician:
+                  return const TechnicianTaskScreen();
+                case UserRole.customer:
+                  return const CustomerRequestMenu();
+              }
             },
           );
         },

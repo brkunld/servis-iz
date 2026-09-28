@@ -54,3 +54,8 @@ app.*.map.json
 # Ders teslim kopyaları
 /22100011044-*
 *.rar
+
+# Firestore kural testleri
+/firestore-tests/node_modules/
+firebase-debug.log
+firestore-debug.log

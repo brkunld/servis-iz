@@ -1,23 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:mobil_proje/screens/company_dashboard.dart';
 import 'package:mobil_proje/screens/customer_request_screen.dart';
 import 'package:mobil_proje/screens/technician_task_screen.dart';
 import 'package:mobil_proje/screens/register_screen.dart';
+import 'package:mobil_proje/screens/verify_email_screen.dart';
 import 'package:mobil_proje/utils/background.dart';
 import 'package:mobil_proje/utils/route.dart';
-
-Future<DocumentSnapshot?> getUserRole(String uid) async {
-  const List<String> groups = ["customers", "technicians", "companies"];
-
-  for (String type in groups) {
-    final doc = await FirebaseFirestore.instance.collection(type).doc(uid).get();
-    if (doc.exists) return doc;
-  }
-  return null;
-}
+import 'package:mobil_proje/utils/user_role.dart';
 
 class LoginScreen extends StatefulWidget {
   final String? showMessage;
@@ -118,55 +109,31 @@ class _LoginScreenState extends State<LoginScreen> {
       final cred = await FirebaseAuth.instance
           .signInWithEmailAndPassword(email: email, password: pass);
 
-      final uid = cred.user!.uid;
+      final user = cred.user!;
+      final role = await findUserRole(user.uid, retries: 0);
 
-
-      const allowedEmails = [
-        "sefa@gmail.com",
-        "burak@gmail.com",
-        "burakunaldi001@gmail.com",
-      ];
-
-      final user = FirebaseAuth.instance.currentUser;
-
-      if (user != null && !user.emailVerified) {
-        if (!allowedEmails.contains(user.email)) {
-          await FirebaseAuth.instance.signOut();
-          return _show("Lütfen e-postanızı doğrulayın.");
-        }
+      if (needsEmailVerification(user, role)) {
+        return _navigate(const VerifyEmailScreen());
       }
 
-      final doc = await getUserRole(uid);
-
-      if (doc == null) return _show("Kullanıcı bulunamadı.");
-
-      final parent = doc.reference.parent.id;
-      _navigateRole(parent);
+      switch (role) {
+        case UserRole.customer:
+          return _navigate(const CustomerRequestMenu());
+        case UserRole.technician:
+          return _navigate(const TechnicianTaskScreen());
+        case UserRole.company:
+          return _navigate(const CompanyDashboard());
+        case null:
+          await FirebaseAuth.instance.signOut();
+          return _show("Kullanıcı bulunamadı.");
+      }
     } catch (e) {
       _show("Giriş hatası: $e");
     }
   }
 
-  void _navigateRole(String role) {
-    Widget page;
-
-    switch (role) {
-      case "customers":
-        page = const CustomerRequestMenu();
-        break;
-
-      case "technicians":
-        page = const TechnicianTaskScreen();
-        break;
-
-      case "companies":
-        page = const CompanyDashboard();
-        break;
-
-      default:
-        return _show("Rol bulunamadı!");
-    }
-
+  void _navigate(Widget page) {
+    if (!mounted) return;
     Navigator.pushReplacement(context, iosPageRoute(page));
   }
 

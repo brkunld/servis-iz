@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mobil_proje/utils/background.dart';
+import 'package:mobil_proje/utils/task_service.dart';
 import 'map_screen.dart';
 
 enum ViewMode { customers, technicians }
@@ -250,22 +251,20 @@ class _CompanyDashboardState extends State<CompanyDashboard> {
                             size: 16,
                           ),
                           onTap: () async {
-                            await FirebaseFirestore.instance
-                                .collection("requests")
-                                .doc(requestId)
-                                .update({
-                              "technicianId": t.id,
-                              "status": "Devam Ediyor",
-                              "updatedAt": FieldValue.serverTimestamp(),
-                            });
-
-                            await FirebaseFirestore.instance
-                                .collection("technicians")
-                                .doc(t.id)
-                                .update({"isAvailable": false});
-
-                            if (!mounted) return;
-                            Navigator.pop(context);
+                            final messenger = ScaffoldMessenger.of(context);
+                            final navigator = Navigator.of(context);
+                            try {
+                              await assignTask(
+                                requestId: requestId,
+                                technicianId: t.id,
+                              );
+                              navigator.pop();
+                            } catch (e) {
+                              navigator.pop();
+                              messenger.showSnackBar(
+                                SnackBar(content: Text("Atama yapılamadı: $e")),
+                              );
+                            }
                           },
                         ),
                       );

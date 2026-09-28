@@ -27,6 +27,27 @@ Gizli yapılandırma dosyaları depoda yoktur. Çalıştırmak için kendi Fireb
    ```
 4. `flutter run`
 
+
+## Güvenlik kuralları
+
+Firestore kuralları `firestore.rules` dosyasındadır. Özetle:
+
+- Şirket hesabı yalnız Firebase konsolundan açılır; teknisyeni yalnız şirket ekler. Kimse kendine rol veremez.
+- Müşteri kendi kendine kayıt olur. E-postasını doğrulamadan talep açamaz (uygulamada ve kurallarda).
+- Teknisyen bekleyen bir işi yalnız müsaitken alabilir. İş ve teknisyen aynı transaction'da güncellenir; iki teknisyen aynı işi alamaz.
+- Müşteri tamamlanan işini bir kez, 1-5 yıldız arasında puanlar; teknisyenin puanı yalnız bu puan kadar değişir.
+- Mesajları yalnız talebin müşterisi ve atanan teknisyeni okuyup yazabilir.
+
+Kuralların testleri Firebase emülatöründe çalışır (Node.js, Firebase CLI ve Java 21+ gerekir):
+
+```
+cd firestore-tests
+npm install
+npm test
+```
+
+Kuralları kendi projenize yüklemek için: `firebase deploy --only firestore:rules`
+
 ## Geliştirici
 
 Burak Ünaldı

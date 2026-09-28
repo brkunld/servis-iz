@@ -1,0 +1,230 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =============================
+    // YARDIMCILAR
+    // =============================
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function docPath(col, id) {
+      return /databases/$(database)/documents/$(col)/$(id);
+    }
+
+    // Rol, kullanıcının hangi koleksiyonda kaydı olduğuna göre belirlenir.
+    // Aşağıdaki create kuralları bir kullanıcının yalnız tek rolde kaydı
+    // olmasını sağlar.
+    function role() {
+      let uid = request.auth.uid;
+      return exists(docPath("customers", uid)) ? "customer"
+        : exists(docPath("technicians", uid)) ? "technician"
+        : exists(docPath("companies", uid)) ? "company"
+        : "none";
+    }
+
+    function isCompany() {
+      return signedIn() && role() == "company";
+    }
+
+    function isTechnician() {
+      return signedIn() && role() == "technician";
+    }
+
+    // Müşteriler kendi kendine kayıt olduğu için e-posta doğrulaması
+    // sunucu tarafında da zorunlu. Şirket ve teknisyen hesaplarını
+    // güvenilir taraflar (konsol / şirket) açar.
+    function isVerifiedCustomer() {
+      return signedIn() &&
+        request.auth.token.email_verified == true &&
+        role() == "customer";
+    }
+
+    function onlyChanges(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    // =============================
+    // CUSTOMERS
+    // =============================
+    match /customers/{uid} {
+
+      // Kayıt olan kullanıcı yalnız kendi müşteri kaydını açar;
+      // başka bir rolde kaydı varsa açamaz.
+      allow create: if signedIn() &&
+        request.auth.uid == uid &&
+        !exists(docPath("technicians", uid)) &&
+        !exists(docPath("companies", uid)) &&
+        request.resource.data.keys().hasOnly(["name", "email", "phone", "createdAt"]);
+
+      // Kendisi ve şirket okur; teknisyen sohbet için tek belge okuyabilir.
+      allow read: if signedIn() && (request.auth.uid == uid || isCompany());
+      allow get: if isTechnician();
+
+      allow update: if signedIn() &&
+        request.auth.uid == uid &&
+        onlyChanges(["name", "phone"]);
+
+      allow delete: if false;
+    }
+
+    // =============================
+    // TECHNICIANS
+    // =============================
+    match /technicians/{uid} {
+
+      // Teknisyeni yalnız şirket ekler.
+      allow create: if isCompany();
+
+      // Müşteri teknisyen adını/fotoğrafını görür, şirket listeler.
+      allow read: if signedIn();
+
+      // Şirket her alanı günceller.
+      allow update: if isCompany();
+
+      // Teknisyen kendi belgesinde yalnız konum ve müsaitlik günceller.
+      allow update: if signedIn() &&
+        request.auth.uid == uid &&
+        onlyChanges(["location", "isAvailable"]);
+
+      // Müşteri puanı: aynı yazma işleminde (transaction) kendi tamamlanmış
+      // ve daha önce puanlanmamış talebini puanlamış olmalı; toplamlar
+      // yalnız o puan kadar artabilir. Böylece bir talep bir kez sayılır.
+      allow update: if isVerifiedCustomer() &&
+        onlyChanges(["totalStars", "ratingCount", "rating", "lastRatedRequest"]) &&
+        request.resource.data.lastRatedRequest is string &&
+        validRating(uid, request.resource.data.lastRatedRequest);
+
+      allow delete: if false;
+    }
+
+    function validRating(techId, reqId) {
+      let before = get(docPath("requests", reqId)).data;
+      let after = getAfter(docPath("requests", reqId)).data;
+      return before.customerId == request.auth.uid &&
+        before.technicianId == techId &&
+        before.status == "Tamamlandı" &&
+        before.get("rated", false) != true &&
+        after.rated == true &&
+        request.resource.data.totalStars == resource.data.get("totalStars", 0) + after.givenStars &&
+        request.resource.data.ratingCount == resource.data.get("ratingCount", 0) + 1 &&
+        request.resource.data.rating is number;
+    }
+
+    // =============================
+    // COMPANIES
+    // =============================
+    match /companies/{uid} {
+
+      // Şirket hesabı yalnız Firebase konsolundan açılır; uygulamadan
+      // kimse kendini şirket yapamaz.
+      allow create, delete: if false;
+
+      allow read, update: if signedIn() && request.auth.uid == uid;
+    }
+
+    // =============================
+    // REQUESTS (İŞ TALEPLERİ)
+    // =============================
+    match /requests/{requestId} {
+
+      // Doğrulanmış müşteri yalnız kendi adına, bekleyen ve atanmamış
+      // talep açar.
+      allow create: if isVerifiedCustomer() &&
+        request.resource.data.customerId == request.auth.uid &&
+        request.resource.data.status == "Bekliyor" &&
+        request.resource.data.technicianId == null &&
+        request.resource.data.rated == false;
+
+      allow read: if signedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.get("technicianId", null) == request.auth.uid ||
+        (isTechnician() && resource.data.status == "Bekliyor") ||
+        isCompany()
+      );
+
+      allow update: if signedIn() && (
+
+        // Teknisyen bekleyen, atanmamış işi kendine alır. Aynı işlemde
+        // kendi müsaitliğini true'dan false'a çekmesi gerekir; böylece
+        // aynı anda iki iş alamaz.
+        (
+          isTechnician() &&
+          resource.data.status == "Bekliyor" &&
+          resource.data.get("technicianId", null) == null &&
+          request.resource.data.technicianId == request.auth.uid &&
+          request.resource.data.status == "Devam Ediyor" &&
+          onlyChanges(["technicianId", "status", "updatedAt"]) &&
+          get(docPath("technicians", request.auth.uid)).data.get("isAvailable", true) == true &&
+          getAfter(docPath("technicians", request.auth.uid)).data.isAvailable == false
+        ) ||
+
+        // Atanan teknisyen kendi işinde parça ekler ve işi tamamlar.
+        (
+          resource.data.get("technicianId", null) == request.auth.uid &&
+          resource.data.status == "Devam Ediyor" &&
+          request.resource.data.technicianId == request.auth.uid &&
+          request.resource.data.status in ["Devam Ediyor", "Tamamlandı"] &&
+          onlyChanges(["usedParts", "status", "completedAt", "updatedAt"])
+        ) ||
+
+        // Müşteri tamamlanan işini bir kez puanlar.
+        (
+          isVerifiedCustomer() &&
+          resource.data.customerId == request.auth.uid &&
+          resource.data.status == "Tamamlandı" &&
+          resource.data.get("rated", false) != true &&
+          onlyChanges(["rated", "givenStars", "comment"]) &&
+          request.resource.data.rated == true &&
+          request.resource.data.givenStars is int &&
+          request.resource.data.givenStars >= 1 &&
+          request.resource.data.givenStars <= 5 &&
+          request.resource.data.comment is string &&
+          request.resource.data.comment.size() <= 1000
+        ) ||
+
+        isCompany()
+      );
+
+      allow delete: if (
+          isVerifiedCustomer() &&
+          resource.data.customerId == request.auth.uid &&
+          resource.data.status == "Bekliyor"
+        ) || isCompany();
+    }
+
+    // =============================
+    // CHAT MESSAGES
+    // =============================
+    match /messages/{msgId} {
+
+      // Yalnız talebin müşterisi ve atanan teknisyeni birbirine yazar.
+      allow create: if signedIn() &&
+        request.resource.data.requestId is string &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.message is string &&
+        request.resource.data.message.size() > 0 &&
+        request.resource.data.message.size() <= 5000 &&
+        isChatPair(get(docPath("requests", request.resource.data.requestId)).data);
+
+      // Okuma (tek belge ve requestId'ye göre sorgu) yalnız talebin tarafları.
+      allow read: if signedIn() &&
+        isChatParty(get(docPath("requests", resource.data.requestId)).data);
+
+      allow update, delete: if false;
+    }
+
+    function isChatParty(req) {
+      return request.auth.uid == req.customerId ||
+        request.auth.uid == req.get("technicianId", null);
+    }
+
+    function isChatPair(req) {
+      return (request.auth.uid == req.customerId &&
+              request.resource.data.receiverId == req.get("technicianId", null)) ||
+             (request.auth.uid == req.get("technicianId", null) &&
+              request.resource.data.receiverId == req.customerId);
+    }
+  }
+}

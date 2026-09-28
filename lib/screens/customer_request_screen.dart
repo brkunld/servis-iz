@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mobil_proje/screens/chat_screen.dart';
 import 'package:mobil_proje/utils/background.dart';
+import 'package:mobil_proje/utils/task_service.dart';
 import 'new_request_screen.dart';
 import 'map_screen.dart';
 
@@ -130,48 +131,24 @@ class _CustomerRequestMenuState extends State<CustomerRequestMenu> {
     String comment,
     BuildContext context,
   ) async {
-    final reqRef = FirebaseFirestore.instance
-        .collection("requests")
-        .doc(requestId);
-    final techRef = FirebaseFirestore.instance
-        .collection("technicians")
-        .doc(techId);
+    final messenger = ScaffoldMessenger.of(context);
 
     try {
-      await reqRef.update({
-        "rated": true,
-        "givenStars": stars,
-        "comment": comment,
-      });
+      await rateTask(
+        requestId: requestId,
+        technicianId: techId,
+        stars: stars,
+        comment: comment,
+      );
 
-      await FirebaseFirestore.instance.runTransaction((t) async {
-        final techSnap = await t.get(techRef);
-        final data = techSnap.data() as Map<String, dynamic>;
-
-        int totalStars = data["totalStars"] ?? 0;
-        int ratingCount = data["ratingCount"] ?? 0;
-
-        totalStars += stars;
-        ratingCount += 1;
-        double rating = totalStars / ratingCount;
-
-        t.update(techRef, {
-          "totalStars": totalStars,
-          "ratingCount": ratingCount,
-          "rating": rating,
-        });
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text("Değerlendirmeniz kaydedildi!"),
           backgroundColor: Colors.green,
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Hata: $e")));
+      messenger.showSnackBar(SnackBar(content: Text("Hata: $e")));
     }
   }
 

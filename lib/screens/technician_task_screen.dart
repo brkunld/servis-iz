@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mobil_proje/screens/chat_screen.dart';
 import 'package:mobil_proje/utils/background.dart';
+import 'package:mobil_proje/utils/task_service.dart' as task_service;
 import 'map_screen.dart';
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
@@ -137,19 +138,19 @@ class _TechnicianTaskScreenState extends State<TechnicianTaskScreen> {
   Future<void> takeTask(String id) async {
     final uid = FirebaseAuth.instance.currentUser!.uid;
 
-    await FirebaseFirestore.instance.collection("requests").doc(id).update({
-      "technicianId": uid,
-      "status": "Devam Ediyor",
-    });
-
-    await FirebaseFirestore.instance.collection("technicians").doc(uid).update({
-      "isAvailable": false,
-    });
+    String message = "Görev sana atandı!";
+    try {
+      await task_service.assignTask(requestId: id, technicianId: uid);
+    } on task_service.TaskException catch (e) {
+      message = e.message;
+    } catch (e) {
+      message = "Görev alınamadı: $e";
+    }
 
     if (mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("Görev sana atandı!")));
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -172,23 +173,20 @@ class _TechnicianTaskScreenState extends State<TechnicianTaskScreen> {
     setState(() => loading = true);
 
     try {
-      await FirebaseFirestore.instance
-          .collection("requests")
-          .doc(selectedRequestId)
-          .update({
-            "status": "Tamamlandı",
-            "completedAt": FieldValue.serverTimestamp(),
-          });
+      await task_service.completeTask(
+        requestId: selectedRequestId!,
+        technicianId: FirebaseAuth.instance.currentUser!.uid,
+      );
 
-      final uid = FirebaseAuth.instance.currentUser!.uid;
-      await FirebaseFirestore.instance
-          .collection("technicians")
-          .doc(uid)
-          .update({"isAvailable": true});
-
-      setState(() => selectedRequestId = null);
+      if (mounted) setState(() => selectedRequestId = null);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Görev tamamlanamadı: $e")),
+        );
+      }
     } finally {
-      setState(() => loading = false);
+      if (mounted) setState(() => loading = false);
     }
   }
 
