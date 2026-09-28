@@ -1,0 +1,52 @@
+name: mobil_proje
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  geocoding: ^3.0.0
+
+  firebase_core: ^3.1.0
+  firebase_auth: ^5.1.0
+  cloud_firestore: ^5.1.0
+  firebase_storage: ^12.0.0
+  google_sign_in: ^6.2.1
+  image_picker: ^1.1.2
+  permission_handler: ^11.3.0
+  geolocator: ^14.0.2
+  cupertino_icons: ^1.0.8
+  http: ^1.2.2
+  get: ^4.7.2
+  url_launcher: ^6.3.2
+  google_maps_flutter: ^2.6.0
+  flutter_riverpod: ^2.5.1
+  flutter_map: ^8.2.2
+  latlong2: ^0.9.1
+  flutter_polyline_points: ^2.1.0
+  device_info_plus: ^12.3.0
+  flutter_launcher_icons: ^0.14.4
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/background.png
+    - assets/sehirler.json
+    - assets/ilceler.json
+    - assets/default_technician.jpg
+    - assets/logo.png
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo.png"
