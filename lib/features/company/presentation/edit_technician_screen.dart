@@ -1,36 +1,39 @@
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:mobil_proje/core/widgets/app_background.dart';
-import 'package:mobil_proje/utils/technician_photo.dart';
 
-class EditTechnicianScreen extends StatefulWidget {
-  const EditTechnicianScreen({super.key});
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:mobil_proje/core/widgets/app_background.dart';
+import 'package:mobil_proje/features/technicians/data/technician_repository.dart';
+import 'package:mobil_proje/features/technicians/presentation/technician_avatar.dart';
+
+/// Şirketin teknisyenin adını, telefonunu ve fotoğrafını düzenlediği ekran.
+/// Teknisyen id'si adresten gelir: `/company/technicians/:id/edit`.
+class EditTechnicianScreen extends ConsumerStatefulWidget {
+  const EditTechnicianScreen({super.key, required this.technicianId});
+
+  final String technicianId;
 
   @override
-  State<EditTechnicianScreen> createState() => _EditTechnicianScreenState();
+  ConsumerState<EditTechnicianScreen> createState() =>
+      _EditTechnicianScreenState();
 }
 
-class _EditTechnicianScreenState extends State<EditTechnicianScreen> {
+class _EditTechnicianScreenState extends ConsumerState<EditTechnicianScreen> {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
 
   bool loading = false;
-  bool dataLoaded = false;
 
   Uint8List? pickedPhoto;
 
-  late String technicianId;
+  String get technicianId => widget.technicianId;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-
-    if (!dataLoaded) {
-      technicianId = ModalRoute.of(context)!.settings.arguments as String;
-      _loadTechnician();
-      dataLoaded = true;
-    }
+  void initState() {
+    super.initState();
+    _loadTechnician();
   }
 
   Future<void> pickImage() async {
@@ -47,23 +50,21 @@ class _EditTechnicianScreenState extends State<EditTechnicianScreen> {
 
   Future<void> _loadTechnician() async {
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection("technicians")
-          .doc(technicianId)
-          .get();
+      final tech = await ref
+          .read(technicianRepositoryProvider)
+          .getTechnician(technicianId);
+      if (!mounted) return;
 
-      if (!snap.exists) {
-        if (!mounted) return;
+      if (tech == null) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text("Teknisyen bulunamadı!")));
-        Navigator.pop(context);
+        context.pop();
         return;
       }
 
-      final data = snap.data()!;
-      nameController.text = data["name"] ?? "";
-      phoneController.text = data["phone"] ?? "";
+      nameController.text = tech.name ?? "";
+      phoneController.text = tech.phone ?? "";
 
       setState(() {});
     } catch (e) {
@@ -98,17 +99,18 @@ class _EditTechnicianScreenState extends State<EditTechnicianScreen> {
     setState(() => loading = true);
 
     try {
-      if (pickedPhoto != null) {
-        await saveTechnicianPhoto(technicianId, pickedPhoto!);
+      final photo = pickedPhoto;
+      if (photo != null) {
+        await saveTechnicianPhoto(ref, technicianId, photo);
       }
 
-      await FirebaseFirestore.instance
-          .collection("technicians")
-          .doc(technicianId)
-          .update({
-            "name": nameController.text.trim(),
-            "phone": phoneController.text.trim(),
-          });
+      await ref
+          .read(technicianRepositoryProvider)
+          .updateProfile(
+            technicianId,
+            name: nameController.text.trim(),
+            phone: phoneController.text.trim(),
+          );
 
       if (!mounted) return;
 
@@ -120,7 +122,7 @@ class _EditTechnicianScreenState extends State<EditTechnicianScreen> {
         ),
       );
 
-      Navigator.pop(context);
+      context.pop();
     } catch (e) {
       if (!mounted) return;
 

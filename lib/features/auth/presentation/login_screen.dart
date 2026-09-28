@@ -1,25 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import 'package:mobil_proje/screens/company_dashboard.dart';
-import 'package:mobil_proje/screens/customer_request_screen.dart';
-import 'package:mobil_proje/screens/technician_task_screen.dart';
-import 'package:mobil_proje/screens/register_screen.dart';
-import 'package:mobil_proje/screens/verify_email_screen.dart';
+import 'package:mobil_proje/core/router/app_routes.dart';
 import 'package:mobil_proje/core/widgets/app_background.dart';
-import 'package:mobil_proje/utils/route.dart';
-import 'package:mobil_proje/features/auth/domain/user_role.dart';
+import 'package:mobil_proje/features/auth/data/auth_repository.dart';
+import 'package:mobil_proje/features/auth/data/session_providers.dart';
 
-class LoginScreen extends StatefulWidget {
-  final String? showMessage;
-
-  const LoginScreen({super.key, this.showMessage});
+/// Giriş ekranı. Giriş başarılı olunca buradan başka ekrana gidilmez:
+/// oturum değişir, yönlendirici (router) kullanıcıyı rolünün ana ekranına
+/// kendisi götürür.
+class LoginScreen extends ConsumerStatefulWidget {
+  const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscurePassword = true;
 
   final TextEditingController inputController = TextEditingController();
@@ -29,13 +27,17 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
 
-    if (widget.showMessage != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(widget.showMessage!)));
-      });
-    }
+    // Oturum geçersiz olduğu için kapatıldıysa (rol yok, okuma hatası)
+    // mesaj burada bir kez gösterilir.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showPendingMessage());
+  }
+
+  void _showPendingMessage() {
+    if (!mounted) return;
+    final message = ref.read(loginMessageProvider);
+    if (message == null) return;
+    ref.read(loginMessageProvider.notifier).clear();
+    _show(message);
   }
 
   @override
@@ -47,7 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _forgotPasswordDialog() {
     final TextEditingController resetController = TextEditingController();
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Şifre Sıfırlama"),
@@ -86,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      await ref.read(authRepositoryProvider).sendPasswordReset(email);
       _show("Şifre sıfırlama maili gönderildi: $email");
     } catch (e) {
       _show("Hata: $e");
@@ -106,37 +108,13 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     try {
-      final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email,
-        password: pass,
-      );
-
-      final user = cred.user!;
-      final role = await findUserRole(user.uid, retries: 0);
-
-      if (needsEmailVerification(user, role)) {
-        return _navigate(const VerifyEmailScreen());
-      }
-
-      switch (role) {
-        case UserRole.customer:
-          return _navigate(const CustomerRequestMenu());
-        case UserRole.technician:
-          return _navigate(const TechnicianTaskScreen());
-        case UserRole.company:
-          return _navigate(const CompanyDashboard());
-        case null:
-          await FirebaseAuth.instance.signOut();
-          return _show("Kullanıcı bulunamadı.");
-      }
+      await ref
+          .read(authRepositoryProvider)
+          .signIn(email: email, password: pass);
+      // Yönlendirme router'da: sessionProvider değişince ana ekrana gidilir.
     } catch (e) {
       _show("Giriş hatası: $e");
     }
-  }
-
-  void _navigate(Widget page) {
-    if (!mounted) return;
-    Navigator.pushReplacement(context, iosPageRoute(page));
   }
 
   void _show(String msg) {
@@ -147,6 +125,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(loginMessageProvider, (_, message) {
+      // Bir sonraki karede göster (provider bildirimi sırasında değiştirmemek için).
+      if (message != null) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _showPendingMessage(),
+        );
+      }
+    });
+
     return Scaffold(
       body: Stack(
         children: [
@@ -242,12 +229,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            iosPageRoute(const RegisterScreen()),
-                          );
-                        },
+                        onPressed: () => context.push(AppRoutes.register),
                         child: const Text("Kayıt Ol"),
                       ),
                     ),

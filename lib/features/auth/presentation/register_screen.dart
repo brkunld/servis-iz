@@ -1,19 +1,22 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:mobil_proje/core/widgets/app_background.dart';
-import 'package:mobil_proje/utils/route.dart';
-import 'package:mobil_proje/screens/login_screen.dart';
-import 'package:mobil_proje/screens/verify_email_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-class RegisterScreen extends StatefulWidget {
+import 'package:mobil_proje/core/router/app_routes.dart';
+import 'package:mobil_proje/core/widgets/app_background.dart';
+import 'package:mobil_proje/features/auth/data/auth_repository.dart';
+
+/// Müşteri kaydı. Kayıttan sonra kullanıcı oturumda kalır; e-postası
+/// doğrulanmadığı için yönlendirici onu doğrulama ekranına götürür.
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _adSoyadController = TextEditingController();
@@ -43,31 +46,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final credential = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(
+      await ref
+          .read(authRepositoryProvider)
+          .registerCustomer(
+            name: _adSoyadController.text.trim(),
             email: _emailController.text.trim(),
+            phone: _phoneController.text.trim(),
             password: _passwordController.text.trim(),
           );
-
-      final User user = credential.user!;
-      final String uid = user.uid;
-
-      await user.sendEmailVerification();
-
-      await FirebaseFirestore.instance.collection("customers").doc(uid).set({
-        "name": _adSoyadController.text.trim(),
-        "email": _emailController.text.trim(),
-        "phone": _phoneController.text.trim(),
-        "createdAt": FieldValue.serverTimestamp(),
-      });
-
-      if (!mounted) return;
-
-      await Navigator.pushAndRemoveUntil(
-        context,
-        iosPageRoute(const VerifyEmailScreen()),
-        (route) => false,
-      );
+      // Doğrulama ekranına geçişi router yapar (oturum: doğrulama bekliyor).
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -264,12 +251,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const SizedBox(height: 16),
 
                       GestureDetector(
-                        onTap: () {
-                          Navigator.pushReplacement(
-                            context,
-                            iosBackPageRoute(const LoginScreen()),
-                          );
-                        },
+                        onTap: () => context.go(AppRoutes.login),
                         child: const Text(
                           "Zaten hesabınız var? Giriş Yap",
                           style: TextStyle(

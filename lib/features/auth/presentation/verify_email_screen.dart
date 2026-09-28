@@ -1,37 +1,31 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:mobil_proje/screens/customer_request_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:mobil_proje/core/widgets/app_background.dart';
-import 'package:mobil_proje/utils/route.dart';
+import 'package:mobil_proje/features/auth/data/auth_repository.dart';
+import 'package:mobil_proje/features/auth/data/session_providers.dart';
 
 /// E-postasını doğrulamamış müşteriye gösterilir. Firestore kuralları da
 /// doğrulanmamış müşterinin talep açmasına izin vermez.
-class VerifyEmailScreen extends StatefulWidget {
+class VerifyEmailScreen extends ConsumerStatefulWidget {
   const VerifyEmailScreen({super.key});
 
   @override
-  State<VerifyEmailScreen> createState() => _VerifyEmailScreenState();
+  ConsumerState<VerifyEmailScreen> createState() => _VerifyEmailScreenState();
 }
 
-class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
+class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
   bool _checking = false;
 
   Future<void> _checkVerified() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
     setState(() => _checking = true);
     try {
-      await user.reload();
-      final refreshed = FirebaseAuth.instance.currentUser;
-      if (refreshed != null && refreshed.emailVerified) {
-        // Kuralların yeni doğrulama durumunu görmesi için token yenilenir.
-        await refreshed.getIdToken(true);
-        if (!mounted) return;
-        await Navigator.pushReplacement(
-          context,
-          iosPageRoute(const CustomerRequestMenu()),
-        );
+      final verified = await ref
+          .read(authRepositoryProvider)
+          .reloadAndCheckVerified();
+      if (verified) {
+        // Oturum yeniden hesaplanır; router müşteri ekranına geçer.
+        ref.invalidate(sessionProvider);
         return;
       }
       _show("E-posta henüz doğrulanmamış.");
@@ -44,22 +38,14 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
 
   Future<void> _resend() async {
     try {
-      await FirebaseAuth.instance.currentUser?.sendEmailVerification();
+      await ref.read(authRepositoryProvider).resendVerificationEmail();
       _show("Doğrulama e-postası tekrar gönderildi.");
     } catch (e) {
       _show("Gönderilemedi: $e");
     }
   }
 
-  Future<void> _logout() async {
-    await FirebaseAuth.instance.signOut();
-    if (!mounted) return;
-    await Navigator.pushNamedAndRemoveUntil(
-      context,
-      "/login",
-      (route) => false,
-    );
-  }
+  Future<void> _logout() => ref.read(authRepositoryProvider).signOut();
 
   void _show(String msg) {
     if (!mounted) return;
@@ -68,7 +54,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final email = FirebaseAuth.instance.currentUser?.email ?? "";
+    final email = ref.watch(authRepositoryProvider).currentUser?.email ?? "";
 
     return Scaffold(
       body: Stack(

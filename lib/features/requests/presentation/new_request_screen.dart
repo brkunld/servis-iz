@@ -1,21 +1,29 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:mobil_proje/screens/map_picker_screen.dart';
-import 'package:mobil_proje/core/widgets/app_background.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:mobil_proje/features/requests/domain/request_status.dart';
+import 'package:go_router/go_router.dart';
 
-class NewRequestScreen extends StatefulWidget {
+import 'package:mobil_proje/core/json/coordinates.dart';
+import 'package:mobil_proje/core/json/json_read.dart';
+import 'package:mobil_proje/core/router/app_routes.dart';
+import 'package:mobil_proje/core/widgets/app_background.dart';
+import 'package:mobil_proje/features/auth/data/session_providers.dart';
+import 'package:mobil_proje/features/customers/data/customer_repository.dart';
+import 'package:mobil_proje/features/requests/data/request_repository.dart';
+import 'package:mobil_proje/features/requests/domain/service_request.dart';
+import 'package:mobil_proje/features/requests/presentation/map_picker_screen.dart';
+
+class NewRequestScreen extends ConsumerStatefulWidget {
   const NewRequestScreen({super.key});
 
   @override
-  State<NewRequestScreen> createState() => _NewRequestScreenState();
+  ConsumerState<NewRequestScreen> createState() => _NewRequestScreenState();
 }
 
-class _NewRequestScreenState extends State<NewRequestScreen> {
+class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _adSoyadController = TextEditingController();
@@ -28,8 +36,10 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
 
   String? _selectedCity;
   String? _selectedDistrict;
-  double? selectedLat;
-  double? selectedLng;
+
+  /// Haritadan seçilen konum; adres elle girilirse null olur ve konum
+  /// gönderirken adresten bulunmaya çalışılır.
+  Coordinates? _selectedLocation;
 
   List<String> _cities = [];
   final Map<String, List<String>> _districts = {};
@@ -41,64 +51,55 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
     Future.delayed(Duration.zero, loadUserInfo);
   }
 
+  @override
+  void dispose() {
+    for (final c in [
+      _adSoyadController,
+      _telefonController,
+      _emailController,
+      _arizaController,
+      _adresController,
+      _katController,
+      _daireController,
+    ]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
   // ✅ HARİTADAN KONUM SEÇİMİ
   Future<void> _openMapPicker() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const MapPickerScreen()),
-    );
+    final result = await context.push<PickedLocation>(AppRoutes.pickLocation);
 
-    if (result != null) {
+    if (result != null && mounted) {
       setState(() {
-        _adresController.text = result["address"];
-        _selectedCity = result["city"];
-        _selectedDistrict = result["district"];
+        _adresController.text = result.address;
+        _selectedCity = result.city;
+        _selectedDistrict = result.district;
 
         // ⭐ HARİTADAN GELEN KONUM → Direkt kullan
-        selectedLat = result["lat"];
-        selectedLng = result["lng"];
+        _selectedLocation = result.coordinates;
       });
     }
   }
 
-  Future<Map<String, double>> addressToLatLng(String address) async {
-    try {
-      final List<Location> locations = await locationFromAddress(address);
-
-      if (locations.isEmpty) {
-        throw Exception("Adres bulunamadı");
-      }
-
-      final loc = locations.first;
-      return {"lat": loc.latitude, "lng": loc.longitude};
-    } catch (e) {
-      throw Exception("Adres koordinata çevrilemedi: $e");
-    }
-  }
-
   // -----------------------------------------------
-  // Kullanıcı bilgilerini Firestore'dan çekme
+  // Kullanıcı bilgileriyle formu önceden doldurma
   // -----------------------------------------------
   Future<void> loadUserInfo() async {
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final uid = ref.read(currentUserIdProvider);
       if (uid == null) return;
 
-      final doc = await FirebaseFirestore.instance
-          .collection("customers")
-          .doc(uid)
-          .get();
-
-      if (!doc.exists) return;
-
-      final data = doc.data()!;
-
-      if (!mounted) return;
+      final customer = await ref
+          .read(customerRepositoryProvider)
+          .getCustomer(uid);
+      if (customer == null || !mounted) return;
 
       setState(() {
-        _adSoyadController.text = data["name"] ?? "";
-        _emailController.text = data["email"] ?? "";
-        _telefonController.text = data["phone"] ?? "";
+        _adSoyadController.text = customer.name ?? "";
+        _emailController.text = customer.email ?? "";
+        _telefonController.text = customer.phone ?? "";
       });
     } catch (_) {}
   }
@@ -110,21 +111,26 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
     final citiesJson = await rootBundle.loadString('assets/sehirler.json');
     final districtsJson = await rootBundle.loadString('assets/ilceler.json');
 
-    final citiesData = json.decode(citiesJson) as List<dynamic>;
-    final districtsData = json.decode(districtsJson) as List<dynamic>;
+    final cities = [
+      for (final e in json.decode(citiesJson) as List<Object?>) asJson(e)!,
+    ];
+    final districts = [
+      for (final e in json.decode(districtsJson) as List<Object?>) asJson(e)!,
+    ];
 
+    // sehir_id → şehir adı
+    final cityNames = {
+      for (final c in cities) c['sehir_id']: readString(c, 'sehir_adi') ?? '',
+    };
+
+    if (!mounted) return;
     setState(() {
-      _cities = citiesData.map((e) => e['sehir_adi'].toString()).toList();
+      _cities = cityNames.values.toList();
 
-      for (var d in districtsData) {
-        final cityName = citiesData
-            .firstWhere((c) => c['sehir_id'] == d['sehir_id'])['sehir_adi']
-            .toString();
-
-        final districtName = d['ilce_adi'].toString();
-
-        _districts[cityName] ??= [];
-        _districts[cityName]!.add(districtName);
+      for (final d in districts) {
+        final cityName = cityNames[d['sehir_id']];
+        if (cityName == null) continue;
+        (_districts[cityName] ??= []).add(readString(d, 'ilce_adi') ?? '');
       }
     });
   }
@@ -226,8 +232,7 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
                     _selectedDistrict = tempDistrict;
 
                     // ⭐ MANUEL ADRES GİRİLDİ → Haritadan gelen koordinatları sıfırla
-                    selectedLat = null;
-                    selectedLng = null;
+                    _selectedLocation = null;
                   });
 
                   Navigator.pop(context, fullAddress);
@@ -259,49 +264,33 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
     }
 
     try {
-      final uid = FirebaseAuth.instance.currentUser!.uid;
+      final uid = ref.read(currentUserIdProvider);
+      if (uid == null) return;
 
       final addressText = _adresController.text.trim();
 
-      double? lat = selectedLat;
-      double? lng = selectedLng;
+      var location = _selectedLocation;
+      location ??= await _geocode(
+        "$addressText $_selectedDistrict $_selectedCity Türkiye",
+      );
 
-      if (lat == null || lng == null) {
-        try {
-          final List<Location> result = await locationFromAddress(
-            "$addressText $_selectedDistrict $_selectedCity Türkiye",
+      await ref
+          .read(requestRepositoryProvider)
+          .create(
+            NewServiceRequest(
+              customerId: uid,
+              customerName: _adSoyadController.text.trim(),
+              phone: _telefonController.text.trim(),
+              email: _emailController.text.trim(),
+              address: addressText,
+              issue: _arizaController.text.trim(),
+              floor: _katController.text.trim(),
+              apartment: _daireController.text.trim(),
+              city: _selectedCity!,
+              district: _selectedDistrict!,
+              location: location,
+            ),
           );
-
-          if (result.isNotEmpty) {
-            lat = result.first.latitude;
-            lng = result.first.longitude;
-          }
-        } catch (_) {}
-      } else {}
-
-      await FirebaseFirestore.instance.collection("requests").add({
-        "customerId": uid,
-        "name": _adSoyadController.text.trim(),
-        "phone": _telefonController.text.trim(),
-        "email": _emailController.text.trim(),
-        "address": addressText,
-        "issue": _arizaController.text.trim(),
-        "kat": _katController.text.trim(),
-        "daire": _daireController.text.trim(),
-        "city": _selectedCity!,
-        "district": _selectedDistrict!,
-        "status": RequestStatus.pending.value,
-        "createdAt": FieldValue.serverTimestamp(),
-        "technicianId": null,
-
-        "location": (lat != null && lng != null)
-            ? {"lat": lat, "lng": lng}
-            : null,
-
-        "rated": false,
-        "givenStars": null,
-        "comment": null,
-      });
 
       if (!mounted) return;
 
@@ -313,8 +302,8 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context);
-                Navigator.pop(context);
+                Navigator.pop(context); // diyaloğu kapat
+                context.pop(); // formdan talepler ekranına dön
               },
               child: const Text("Tamam"),
             ),
@@ -489,6 +478,17 @@ class _NewRequestScreenState extends State<NewRequestScreen> {
         ],
       ),
     );
+  }
+
+  /// Adresi koordinata çevirir; bulunamazsa null (talep konumsuz kaydedilir).
+  Future<Coordinates?> _geocode(String address) async {
+    try {
+      final result = await locationFromAddress(address);
+      if (result.isEmpty) return null;
+      return Coordinates(result.first.latitude, result.first.longitude);
+    } catch (_) {
+      return null;
+    }
   }
 
   Widget _buildTextField(

@@ -1,23 +1,32 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui';
-import 'package:mobil_proje/utils/technician_photo.dart';
-import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'dart:async';
 
-class UniversalMapScreen extends StatefulWidget {
-  final String userType;
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import 'package:mobil_proje/core/router/app_routes.dart';
+import 'package:mobil_proje/features/technicians/data/technician_providers.dart';
+import 'package:mobil_proje/features/technicians/data/technician_repository.dart';
+import 'package:mobil_proje/features/technicians/domain/technician.dart';
+
+/// Müşteri adresi ile teknisyenin konumunu aynı haritada gösterir.
+///
+/// - Müşteri ve şirket: teknisyenin konumunu Firestore'dan canlı izler.
+/// - Teknisyen: kendi GPS konumunu gösterir ve Firestore'a yazar.
+class TrackingMapScreen extends ConsumerStatefulWidget {
+  final MapViewer viewer;
   final String? technicianId;
   final String? customerId;
   final double? customerLat;
   final double? customerLng;
 
-  const UniversalMapScreen({
+  const TrackingMapScreen({
     super.key,
-    required this.userType,
+    required this.viewer,
     this.technicianId,
     this.customerId,
     this.customerLat,
@@ -25,12 +34,12 @@ class UniversalMapScreen extends StatefulWidget {
   });
 
   @override
-  State<UniversalMapScreen> createState() => _UniversalMapScreenState();
+  ConsumerState<TrackingMapScreen> createState() => _TrackingMapScreenState();
 }
 
-class _UniversalMapScreenState extends State<UniversalMapScreen> {
+class _TrackingMapScreenState extends ConsumerState<TrackingMapScreen> {
   GoogleMapController? mapController;
-  StreamSubscription<DocumentSnapshot>? technicianListener;
+  StreamSubscription<Technician?>? technicianListener;
   StreamSubscription<Position>? locationStream;
 
   Uint8List? technicianMarkerIcon;
@@ -40,9 +49,11 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
 
   bool loading = true;
 
+  bool get _isTechnician => widget.viewer == MapViewer.technician;
+
   Future<Uint8List?> _loadPhoto(String technicianId) async {
     try {
-      return await loadTechnicianPhoto(technicianId);
+      return await ref.read(technicianPhotoProvider(technicianId).future);
     } catch (_) {
       return null;
     }
@@ -99,52 +110,30 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
   }
 
   void _initialize() {
-    if (widget.userType == 'customer' || widget.userType == 'admin') {
-      _listenTechnicianLocation();
-    } else if (widget.userType == 'technician') {
+    if (_isTechnician) {
       _getCurrentLocationAndStartTracking();
     } else {
-      // fallback
-      setState(() => loading = false);
+      _listenTechnicianLocation();
     }
   }
 
   void _listenTechnicianLocation() {
-    if (widget.technicianId == null) {
-      setState(() => loading = false);
+    final technicianId = widget.technicianId;
+    if (technicianId == null) {
+      loading = false;
       return;
     }
 
-    technicianListener = FirebaseFirestore.instance
-        .collection('technicians')
-        .doc(widget.technicianId)
-        .snapshots()
-        .listen((snapshot) {
-          if (!snapshot.exists) {
-            if (mounted) setState(() => loading = false);
-            return;
-          }
+    technicianListener = ref
+        .read(technicianRepositoryProvider)
+        .watchTechnician(technicianId)
+        .listen((technician) {
+          final location = technician?.location;
 
-          final data = snapshot.data();
-          final locationAny = data?['location'];
-
-          double? lat;
-          double? lng;
-
-          if (locationAny is Map) {
-            if (locationAny['lat'] != null && locationAny['lng'] != null) {
-              lat = (locationAny['lat'] as num).toDouble();
-              lng = (locationAny['lng'] as num).toDouble();
-            }
-          } else if (locationAny is GeoPoint) {
-            lat = locationAny.latitude;
-            lng = locationAny.longitude;
-          }
-
-          if (lat != null && lng != null) {
+          if (location != null) {
             if (mounted) {
               setState(() {
-                technicianPosition = LatLng(lat!, lng!);
+                technicianPosition = LatLng(location.lat, location.lng);
                 loading = false;
               });
             }
@@ -194,7 +183,9 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
   }
 
   void _startLocationUpdateToFirebase() {
-    if (widget.technicianId == null) return;
+    final technicianId = widget.technicianId;
+    if (technicianId == null) return;
+    final technicians = ref.read(technicianRepositoryProvider);
 
     locationStream =
         Geolocator.getPositionStream(
@@ -209,16 +200,13 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
             });
           }
 
-          FirebaseFirestore.instance
-              .collection('technicians')
-              .doc(widget.technicianId)
-              .set({
-                'location': {
-                  'lat': position.latitude,
-                  'lng': position.longitude,
-                  'updatedAt': FieldValue.serverTimestamp(),
-                },
-              }, SetOptions(merge: true));
+          technicians
+              .updateLocation(
+                technicianId,
+                position.latitude,
+                position.longitude,
+              )
+              .catchError((Object e) => debugPrint("Konum yazılamadı: $e"));
 
           Future.microtask(_updateCameraToShowBoth);
         });
@@ -230,7 +218,7 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
   }
 
   LatLng? _technicianLatLng() {
-    if (widget.userType == 'technician') {
+    if (_isTechnician) {
       if (myCurrentPosition == null) return null;
       return LatLng(myCurrentPosition!.latitude, myCurrentPosition!.longitude);
     }
@@ -355,11 +343,11 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
 
   Color _getAppBarColor() => Colors.blue.shade700;
 
-  String _getTitle() {
-    if (widget.userType == 'technician') return 'Müşteriye Git';
-    if (widget.userType == 'admin') return 'Canlı Takip (Admin)';
-    return 'Teknisyen Takibi';
-  }
+  String _getTitle() => switch (widget.viewer) {
+    MapViewer.technician => 'Müşteriye Git',
+    MapViewer.company => 'Canlı Takip (Admin)',
+    MapViewer.customer => 'Teknisyen Takibi',
+  };
 
   @override
   void dispose() {
@@ -396,7 +384,7 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
             },
             markers: _buildMarkers(),
             polylines: _buildPolylines(),
-            myLocationEnabled: widget.userType == 'technician',
+            myLocationEnabled: _isTechnician,
             myLocationButtonEnabled: true,
             zoomControlsEnabled: false,
           ),
@@ -413,7 +401,7 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
                       const CircularProgressIndicator(),
                       const SizedBox(height: 10),
                       Text(
-                        widget.userType == 'technician'
+                        _isTechnician
                             ? 'GPS Konumu Bekleniyor...'
                             : 'Teknisyen Konumu Bekleniyor...',
                       ),
@@ -423,9 +411,7 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
               ),
             ),
 
-          if (widget.userType == 'technician' &&
-              !loading &&
-              _customerLatLng() != null)
+          if (_isTechnician && !loading && _customerLatLng() != null)
             Positioned(
               bottom: 20,
               left: MediaQuery.of(context).size.width * 0.05,

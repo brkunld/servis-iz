@@ -1,27 +1,30 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-class ChatScreen extends StatefulWidget {
+import 'package:mobil_proje/features/auth/data/session_providers.dart';
+import 'package:mobil_proje/features/chat/data/chat_repository.dart';
+import 'package:mobil_proje/features/customers/data/customer_repository.dart';
+import 'package:mobil_proje/features/technicians/data/technician_repository.dart';
+
+/// Talebe bağlı müşteri–teknisyen sohbeti.
+class ChatScreen extends ConsumerStatefulWidget {
   final String requestId;
   final String customerId;
   final String technicianId;
-  final String companyId;
 
   const ChatScreen({
     super.key,
     required this.requestId,
     required this.customerId,
     required this.technicianId,
-    required this.companyId,
   });
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
+  ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String? otherUserName;
@@ -39,58 +42,48 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
+  /// Karşı tarafın adı: müşteri için teknisyen, teknisyen için müşteri.
   Future<void> _loadOtherUserName() async {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return;
-
-    String? otherId;
+    final uid = ref.read(currentUserIdProvider);
+    if (uid == null) return;
 
     try {
-      if (currentUser.uid == widget.customerId) {
-        otherId = widget.technicianId;
-        final doc = await FirebaseFirestore.instance
-            .collection("technicians")
-            .doc(otherId)
-            .get();
-        if (doc.exists) {
-          setState(() {
-            otherUserName = doc.data()?["name"] ?? "Teknisyen";
-          });
-        }
+      String? name;
+      if (uid == widget.customerId) {
+        final tech = await ref
+            .read(technicianRepositoryProvider)
+            .getTechnician(widget.technicianId);
+        if (tech != null) name = tech.name ?? "Teknisyen";
       } else {
-        otherId = widget.customerId;
-        final doc = await FirebaseFirestore.instance
-            .collection("customers")
-            .doc(otherId)
-            .get();
-        if (doc.exists) {
-          setState(() {
-            otherUserName = doc.data()?["name"] ?? "Müşteri";
-          });
-        }
+        final customer = await ref
+            .read(customerRepositoryProvider)
+            .getCustomer(widget.customerId);
+        if (customer != null) name = customer.name ?? "Müşteri";
       }
+      if (name != null && mounted) setState(() => otherUserName = name);
     } catch (_) {}
   }
 
   Future<void> _sendMessage() async {
-    if (msgController.text.trim().isEmpty) return;
+    final text = msgController.text.trim();
+    if (text.isEmpty) return;
 
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return;
+    final senderId = ref.read(currentUserIdProvider);
+    if (senderId == null) return;
 
-    final senderId = currentUser.uid;
     final receiverId = senderId == widget.customerId
         ? widget.technicianId
         : widget.customerId;
 
     try {
-      await FirebaseFirestore.instance.collection("messages").add({
-        "requestId": widget.requestId,
-        "senderId": senderId,
-        "receiverId": receiverId,
-        "message": msgController.text.trim(),
-        "timestamp": FieldValue.serverTimestamp(),
-      });
+      await ref
+          .read(chatRepositoryProvider)
+          .send(
+            requestId: widget.requestId,
+            senderId: senderId,
+            receiverId: receiverId,
+            message: text,
+          );
 
       msgController.clear();
 
@@ -114,9 +107,8 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  String _formatTime(Timestamp? timestamp) {
-    if (timestamp == null) return "";
-    final date = timestamp.toDate();
+  String _formatTime(DateTime? date) {
+    if (date == null) return "";
     final now = DateTime.now();
     final diff = now.difference(date);
 
@@ -131,12 +123,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
+    final currentUid = ref.watch(currentUserIdProvider);
+    if (currentUid == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final currentUid = currentUser.uid;
+    final messagesAsync = ref.watch(chatMessagesProvider(widget.requestId));
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
@@ -161,14 +153,9 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection("messages")
-                  .where("requestId", isEqualTo: widget.requestId)
-                  .orderBy("timestamp", descending: false)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+            child: Builder(
+              builder: (context) {
+                if (messagesAsync.isLoading && !messagesAsync.hasValue) {
                   return Center(
                     child: CircularProgressIndicator(
                       color: Colors.blue.shade600,
@@ -176,7 +163,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   );
                 }
 
-                if (snapshot.hasError) {
+                if (messagesAsync.hasError) {
                   return Center(
                     child: Text(
                       "Bir hata oluştu",
@@ -185,7 +172,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   );
                 }
 
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                final messages = messagesAsync.valueOrNull ?? const [];
+                if (messages.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -216,8 +204,6 @@ class _ChatScreenState extends State<ChatScreen> {
                   );
                 }
 
-                final messages = snapshot.data!.docs;
-
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (_scrollController.hasClients) {
                     _scrollController.animateTo(
@@ -234,12 +220,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final msg = messages[index];
-                    final data =
-                        msg.data() as Map<String, dynamic>? ??
-                        <String, dynamic>{};
-                    final bool isMe = data["senderId"] == currentUid;
-                    final ts = data["timestamp"];
-                    final Timestamp? timestamp = ts is Timestamp ? ts : null;
+                    final bool isMe = msg.senderId == currentUid;
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
@@ -303,7 +284,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                     ],
                                   ),
                                   child: Text(
-                                    (data["message"] ?? "").toString(),
+                                    msg.message,
                                     style: TextStyle(
                                       color: isMe
                                           ? Colors.white
@@ -318,7 +299,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                     horizontal: 4,
                                   ),
                                   child: Text(
-                                    _formatTime(timestamp),
+                                    _formatTime(msg.timestamp),
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: Colors.grey.shade500,

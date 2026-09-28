@@ -1,23 +1,14 @@
 import 'dart:typed_data';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-/// Teknisyen profil fotoğrafları Firebase Storage yerine küçük bir JPEG
-/// olarak Firestore'da, `technicianPhotos/{technicianId}` belgesinde tutulur.
-/// Spark (ücretsiz) planında Storage kullanılamadığı için seçildi; yalnız
-/// avatar boyutundaki görseller için uygundur.
+import 'package:mobil_proje/features/technicians/data/technician_providers.dart';
+import 'package:mobil_proje/features/technicians/data/technician_repository.dart';
+
 const int _maxDimension = 256;
 const int _jpegQuality = 70;
-
-/// firestore.rules içindeki sınırla aynı olmalı.
-const int maxPhotoBytes = 200 * 1024;
-
-final Map<String, Uint8List?> _cache = {};
-
-DocumentReference<Map<String, dynamic>> _photoDoc(String technicianId) =>
-    FirebaseFirestore.instance.collection('technicianPhotos').doc(technicianId);
 
 /// Galeriden fotoğraf seçer ve avatar boyutuna küçültür.
 /// Kullanıcı vazgeçerse null döner.
@@ -31,32 +22,24 @@ Future<Uint8List?> pickTechnicianPhoto() async {
   if (image == null) return null;
 
   final bytes = await image.readAsBytes();
-  if (bytes.length > maxPhotoBytes) {
+  if (bytes.length > TechnicianPhotoRepository.maxPhotoBytes) {
     throw Exception('Fotoğraf çok büyük, başka bir fotoğraf seçin.');
   }
   return bytes;
 }
 
-Future<void> saveTechnicianPhoto(String technicianId, Uint8List bytes) async {
-  await _photoDoc(
-    technicianId,
-  ).set({'data': Blob(bytes), 'updatedAt': FieldValue.serverTimestamp()});
-  _cache[technicianId] = bytes;
-}
-
-/// Fotoğrafı yükler; aynı oturumda tekrar okumamak için bellekte tutar.
-Future<Uint8List?> loadTechnicianPhoto(String technicianId) async {
-  if (_cache.containsKey(technicianId)) return _cache[technicianId];
-
-  final snap = await _photoDoc(technicianId).get();
-  final data = snap.data()?['data'];
-  final bytes = data is Blob ? data.bytes : null;
-  _cache[technicianId] = bytes;
-  return bytes;
+/// Fotoğrafı kaydeder ve önbellekteki eski fotoğrafı geçersiz kılar.
+Future<void> saveTechnicianPhoto(
+  WidgetRef ref,
+  String technicianId,
+  Uint8List bytes,
+) async {
+  await ref.read(technicianPhotoRepositoryProvider).save(technicianId, bytes);
+  ref.invalidate(technicianPhotoProvider(technicianId));
 }
 
 /// Teknisyen fotoğrafını, yoksa varsayılan görseli gösteren avatar.
-class TechnicianAvatar extends StatelessWidget {
+class TechnicianAvatar extends ConsumerWidget {
   const TechnicianAvatar({
     super.key,
     required this.technicianId,
@@ -75,16 +58,15 @@ class TechnicianAvatar extends StatelessWidget {
   static const _placeholder = AssetImage('assets/default_technician.jpg');
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final id = technicianId;
     if (preview != null || id == null || id.isEmpty) {
       return _avatar(preview);
     }
 
-    return FutureBuilder<Uint8List?>(
-      future: loadTechnicianPhoto(id),
-      builder: (context, snap) => _avatar(snap.data),
-    );
+    // Yüklenirken ya da hata olursa varsayılan görsel gösterilir.
+    final photo = ref.watch(technicianPhotoProvider(id)).valueOrNull;
+    return _avatar(photo);
   }
 
   Widget _avatar(Uint8List? bytes) => CircleAvatar(

@@ -1,24 +1,26 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:mobil_proje/core/firebase/emulator.dart';
-import 'package:mobil_proje/utils/firebase_options.dart';
-import 'package:mobil_proje/core/widgets/app_background.dart';
-import 'package:mobil_proje/utils/technician_photo.dart';
 
-class AddTechnicianScreen extends StatefulWidget {
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+import 'package:mobil_proje/core/widgets/app_background.dart';
+import 'package:mobil_proje/features/technicians/data/technician_repository.dart';
+import 'package:mobil_proje/features/technicians/presentation/technician_avatar.dart';
+
+/// Şirketin yeni teknisyen hesabı açtığı ekran.
+class AddTechnicianScreen extends ConsumerStatefulWidget {
   const AddTechnicianScreen({super.key});
 
   @override
-  State<AddTechnicianScreen> createState() => _AddTechnicianScreenState();
+  ConsumerState<AddTechnicianScreen> createState() =>
+      _AddTechnicianScreenState();
 }
 
-class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
+class _AddTechnicianScreenState extends ConsumerState<AddTechnicianScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController nameController = TextEditingController();
@@ -30,23 +32,6 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
   bool loading = false;
 
   Uint8List? photoBytes;
-
-  Future<FirebaseAuth> _getSecondaryAuth() async {
-    const secondaryAppName = "adminHelper";
-    FirebaseApp secondaryApp;
-
-    try {
-      secondaryApp = Firebase.app(secondaryAppName);
-    } on FirebaseException {
-      secondaryApp = await Firebase.initializeApp(
-        name: secondaryAppName,
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-      await connectAuthToEmulator(FirebaseAuth.instanceFor(app: secondaryApp));
-    }
-
-    return FirebaseAuth.instanceFor(app: secondaryApp);
-  }
 
   @override
   void dispose() {
@@ -94,35 +79,20 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
     setState(() => loading = true);
 
     try {
-      final adminAuth = await _getSecondaryAuth();
-      final UserCredential cred = await adminAuth
-          .createUserWithEmailAndPassword(
+      final uid = await ref
+          .read(technicianRepositoryProvider)
+          .createTechnician(
+            name: nameController.text.trim(),
             email: emailController.text.trim(),
+            phone: phoneController.text.trim(),
             password: passwordController.text.trim(),
           );
 
-      final String uid = cred.user!.uid;
-
-      await cred.user!.sendEmailVerification();
-      await adminAuth.signOut();
-
-      await FirebaseFirestore.instance.collection("technicians").doc(uid).set({
-        "name": nameController.text.trim(),
-        "email": emailController.text.trim(),
-        "phone": phoneController.text.trim(),
-        "rating": 0.0,
-        "ratingCount": 0,
-        "totalStars": 0,
-        "active": true,
-        "location": null,
-        "isAvailable": true,
-        "createdAt": FieldValue.serverTimestamp(),
-      });
-
       String message = "Teknisyen başarıyla eklendi!";
-      if (photoBytes != null) {
+      final photo = photoBytes;
+      if (photo != null) {
         try {
-          await saveTechnicianPhoto(uid, photoBytes!);
+          await saveTechnicianPhoto(ref, uid, photo);
         } catch (e) {
           message = "Teknisyen eklendi ama fotoğraf kaydedilemedi: $e";
         }
@@ -133,7 +103,7 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
 
-      Navigator.pop(context, true);
+      context.pop(true);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(

@@ -1,7 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import 'package:mobil_proje/core/json/coordinates.dart';
+
+/// Haritadan seçilen konum; seçim ekranı bunu geri döndürür.
+class PickedLocation {
+  const PickedLocation({
+    required this.coordinates,
+    required this.address,
+    required this.city,
+    required this.district,
+  });
+
+  final Coordinates coordinates;
+  final String address;
+  final String city;
+  final String district;
+}
+
+/// Yeni talep formunda "Haritadan Seç". `context.push<PickedLocation>(...)`
+/// ile açılır, seçim yapılınca `context.pop(PickedLocation(...))` döner.
 class MapPickerScreen extends StatefulWidget {
   const MapPickerScreen({super.key});
 
@@ -228,13 +248,17 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                         return;
                       }
 
-                      Navigator.pop(context, {
-                        "lat": selectedPosition!.latitude,
-                        "lng": selectedPosition!.longitude,
-                        "address": selectedAddress,
-                        "city": selectedCity,
-                        "district": selectedDistrict,
-                      });
+                      context.pop(
+                        PickedLocation(
+                          coordinates: Coordinates(
+                            selectedPosition!.latitude,
+                            selectedPosition!.longitude,
+                          ),
+                          address: selectedAddress,
+                          city: selectedCity,
+                          district: selectedDistrict,
+                        ),
+                      );
                     },
               icon: const Icon(Icons.check_circle),
               label: const Text("Bu Konumu Kullan"),
