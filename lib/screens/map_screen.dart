@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'dart:ui';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:mobil_proje/utils/technician_photo.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
@@ -40,13 +40,9 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
 
   bool loading = true;
 
-  Future<Uint8List?> _loadTechnicianImageFromStorage(
-    String technicianId,
-  ) async {
+  Future<Uint8List?> _loadPhoto(String technicianId) async {
     try {
-      final ref = FirebaseStorage.instance.ref("technicians/$technicianId.jpg");
-      final data = await ref.getData();
-      return data;
+      return await loadTechnicianPhoto(technicianId);
     } catch (_) {
       return null;
     }
@@ -82,9 +78,7 @@ class _UniversalMapScreenState extends State<UniversalMapScreen> {
     try {
       if (widget.technicianId == null) return;
 
-      final rawImage = await _loadTechnicianImageFromStorage(
-        widget.technicianId!,
-      );
+      final rawImage = await _loadPhoto(widget.technicianId!);
       if (rawImage == null) return;
 
       final circle = await _createCircularMarker(rawImage, 120);

@@ -7,6 +7,7 @@ import 'package:mobil_proje/utils/task_service.dart';
 import 'new_request_screen.dart';
 import 'map_screen.dart';
 import 'package:mobil_proje/utils/request_status.dart';
+import 'package:mobil_proje/utils/technician_photo.dart';
 
 class CustomerRequestMenu extends StatefulWidget {
   const CustomerRequestMenu({super.key});
@@ -481,24 +482,10 @@ class _CustomerRequestMenuState extends State<CustomerRequestMenu> {
                                                                 width: 3,
                                                               ),
                                                             ),
-                                                        child: CircleAvatar(
+                                                        child: TechnicianAvatar(
+                                                          technicianId:
+                                                              data["technicianId"],
                                                           radius: 30,
-                                                          backgroundColor:
-                                                              Colors
-                                                                  .grey
-                                                                  .shade200,
-                                                          backgroundImage:
-                                                              (tech["photoUrl"] !=
-                                                                      null &&
-                                                                  tech["photoUrl"]
-                                                                      .toString()
-                                                                      .isNotEmpty)
-                                                              ? NetworkImage(
-                                                                  tech["photoUrl"],
-                                                                )
-                                                              : const AssetImage(
-                                                                  "assets/default_technician.jpg",
-                                                                ),
                                                         ),
                                                       ),
                                                       const SizedBox(width: 16),

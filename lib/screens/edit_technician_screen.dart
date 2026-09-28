@@ -1,9 +1,8 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mobil_proje/utils/background.dart';
+import 'package:mobil_proje/utils/technician_photo.dart';
 
 class EditTechnicianScreen extends StatefulWidget {
   const EditTechnicianScreen({super.key});
@@ -16,11 +15,10 @@ class _EditTechnicianScreenState extends State<EditTechnicianScreen> {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
 
-  String? photoUrl;
   bool loading = false;
   bool dataLoaded = false;
 
-  XFile? pickedImage;
+  Uint8List? pickedPhoto;
 
   late String technicianId;
 
@@ -36,13 +34,14 @@ class _EditTechnicianScreenState extends State<EditTechnicianScreen> {
   }
 
   Future<void> pickImage() async {
-    final picker = ImagePicker();
-    final img = await picker.pickImage(source: ImageSource.gallery);
-
-    if (img != null) {
-      setState(() {
-        pickedImage = img;
-      });
+    try {
+      final bytes = await pickTechnicianPhoto();
+      if (bytes != null && mounted) setState(() => pickedPhoto = bytes);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
@@ -65,7 +64,6 @@ class _EditTechnicianScreenState extends State<EditTechnicianScreen> {
       final data = snap.data()!;
       nameController.text = data["name"] ?? "";
       phoneController.text = data["phone"] ?? "";
-      photoUrl = data["photoUrl"];
 
       setState(() {});
     } catch (e) {
@@ -100,14 +98,8 @@ class _EditTechnicianScreenState extends State<EditTechnicianScreen> {
     setState(() => loading = true);
 
     try {
-      String? finalPhotoUrl = photoUrl;
-
-      if (pickedImage != null) {
-        final ref = FirebaseStorage.instance.ref(
-          "technicians/$technicianId.jpg",
-        );
-        await ref.putFile(File(pickedImage!.path));
-        finalPhotoUrl = await ref.getDownloadURL();
+      if (pickedPhoto != null) {
+        await saveTechnicianPhoto(technicianId, pickedPhoto!);
       }
 
       await FirebaseFirestore.instance
@@ -116,7 +108,6 @@ class _EditTechnicianScreenState extends State<EditTechnicianScreen> {
           .update({
             "name": nameController.text.trim(),
             "phone": phoneController.text.trim(),
-            "photoUrl": finalPhotoUrl,
           });
 
       if (!mounted) return;
@@ -205,17 +196,11 @@ class _EditTechnicianScreenState extends State<EditTechnicianScreen> {
                                   width: 5,
                                 ),
                               ),
-                              child: CircleAvatar(
+                              child: TechnicianAvatar(
+                                technicianId: technicianId,
                                 radius: 50,
                                 backgroundColor: Colors.grey.shade300,
-                                backgroundImage: pickedImage != null
-                                    ? FileImage(File(pickedImage!.path))
-                                    : (photoUrl != null && photoUrl!.isNotEmpty
-                                              ? NetworkImage(photoUrl!)
-                                              : const AssetImage(
-                                                  "assets/default_technician.jpg",
-                                                ))
-                                          as ImageProvider,
+                                preview: pickedPhoto,
                               ),
                             ),
                           ),

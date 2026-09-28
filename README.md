@@ -10,7 +10,7 @@ Müşteri, servis şirketi ve teknisyen olmak üzere üç rol vardır:
 ## Kullanılan teknolojiler
 
 - Flutter / Dart, Riverpod
-- Firebase Authentication (e-posta ile giriş), Cloud Firestore, Firebase Storage
+- Firebase Authentication (e-posta ile giriş), Cloud Firestore (teknisyen fotoğrafları dahil; ücretsiz Spark planında çalışır)
 - Google Maps ve flutter_map (OpenStreetMap), geolocator, geocoding
 
 ## Kurulum
@@ -58,6 +58,7 @@ Firestore kuralları `firestore.rules` dosyasındadır. Özetle:
 - Teknisyen bekleyen bir işi yalnız müsaitken alabilir. İş ve teknisyen aynı transaction'da güncellenir; iki teknisyen aynı işi alamaz.
 - Müşteri tamamlanan işini bir kez, 1-5 yıldız arasında puanlar; teknisyenin puanı yalnız bu puan kadar değişir.
 - Mesajları yalnız talebin müşterisi ve atanan teknisyeni okuyup yazabilir.
+- Teknisyen fotoğraflarını (en fazla 200 KB) yalnız şirket yükler.
 
 Kuralların testleri Firebase emülatöründe çalışır (Node.js, Firebase CLI ve Java 21+ gerekir):
 

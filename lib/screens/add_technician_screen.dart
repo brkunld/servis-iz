@@ -1,15 +1,15 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:mobil_proje/utils/emulator.dart';
 import 'package:mobil_proje/utils/firebase_options.dart';
 import 'package:mobil_proje/utils/background.dart';
+import 'package:mobil_proje/utils/technician_photo.dart';
 
 class AddTechnicianScreen extends StatefulWidget {
   const AddTechnicianScreen({super.key});
@@ -29,8 +29,7 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
   bool obscurePassword = true;
   bool loading = false;
 
-  XFile? pickedImage;
-  String? photoUrl;
+  Uint8List? photoBytes;
 
   Future<FirebaseAuth> _getSecondaryAuth() async {
     const secondaryAppName = "adminHelper";
@@ -78,11 +77,14 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
       return;
     }
 
-    final picker = ImagePicker();
-    final img = await picker.pickImage(source: ImageSource.gallery);
-
-    if (img != null) {
-      setState(() => pickedImage = img);
+    try {
+      final bytes = await pickTechnicianPhoto();
+      if (bytes != null && mounted) setState(() => photoBytes = bytes);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
@@ -104,20 +106,10 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
       await cred.user!.sendEmailVerification();
       await adminAuth.signOut();
 
-      if (pickedImage != null) {
-        final ref = FirebaseStorage.instance.ref("technicians/$uid.jpg");
-
-        await ref.putFile(File(pickedImage!.path));
-        photoUrl = await ref.getDownloadURL();
-      } else {
-        photoUrl = null;
-      }
-
       await FirebaseFirestore.instance.collection("technicians").doc(uid).set({
         "name": nameController.text.trim(),
         "email": emailController.text.trim(),
         "phone": phoneController.text.trim(),
-        "photoUrl": photoUrl ?? "",
         "rating": 0.0,
         "ratingCount": 0,
         "totalStars": 0,
@@ -127,10 +119,19 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
         "createdAt": FieldValue.serverTimestamp(),
       });
 
+      String message = "Teknisyen başarıyla eklendi!";
+      if (photoBytes != null) {
+        try {
+          await saveTechnicianPhoto(uid, photoBytes!);
+        } catch (e) {
+          message = "Teknisyen eklendi ama fotoğraf kaydedilemedi: $e";
+        }
+      }
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Teknisyen basariyla eklendi!")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
 
       Navigator.pop(context, true);
     } catch (e) {
@@ -189,10 +190,10 @@ class _AddTechnicianScreenState extends State<AddTechnicianScreen> {
                           onTap: _pickImage,
                           child: CircleAvatar(
                             radius: 55,
-                            backgroundImage: pickedImage != null
-                                ? FileImage(File(pickedImage!.path))
+                            backgroundImage: photoBytes != null
+                                ? MemoryImage(photoBytes!)
                                 : null,
-                            child: pickedImage == null
+                            child: photoBytes == null
                                 ? const Icon(
                                     Icons.camera_alt,
                                     color: Colors.white,
